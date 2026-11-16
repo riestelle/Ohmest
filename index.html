@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ProctorQuiz</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#fbf7f6;--sf:#fff;--tx:#1f1717;--mu:#6f6262;--ac:#b5121b;--ok:#1a7f4b;--bad:#b45309;--bd:#e6d9d7;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#161212;--sf:#231b1b;--tx:#f1eae8;--mu:#a39793;--ac:#e8454d;--ok:#4cc38a;--bad:#f59e0b;--bd:#3d3030;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+#hd{background:#b5121b;color:#fff;padding:10px 16px;font-weight:600;letter-spacing:.03em;text-align:center}
+#app{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:18px 0 8px}
+.mu{color:var(--mu);font-size:14px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px;margin:10px 0}
+input,textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:9px;margin:4px 0}
+textarea{min-height:64px;resize:vertical}
+select{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px}
+.nosel input{user-select:text;-webkit-user-select:text}
+.big{font-size:20px}
+button{font:inherit;border:0;border-radius:10px;padding:10px 16px;background:var(--ac);color:#fff;cursor:pointer}
+button.g{background:transparent;color:var(--ac);border:1px solid var(--bd)}
+button.d{background:transparent;color:var(--bad);border:1px solid var(--bd);padding:6px 10px}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ch{display:flex;gap:8px;align-items:center}.ch input[type=radio]{width:auto;margin:0}
+.tabs{display:flex;gap:8px;margin:12px 0}
+.opt{display:block;width:100%;text-align:left;background:var(--sf);color:var(--tx);border:2px solid var(--bd);margin:8px 0;padding:14px}
+.opt.on{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,var(--sf))}
+.bar{height:10px;background:var(--bd);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac);width:100%}
+.warn{background:color-mix(in srgb,var(--bad) 14%,var(--sf));border:1px solid var(--bad);border-radius:10px;padding:10px;margin:8px 0}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.nosel{user-select:none;-webkit-user-select:none}
+</style></head><body><div id="hd">UNIVERSITY OF THE EAST <button onclick="document.body.classList.toggle('big')" style="float:right;padding:2px 8px;background:#fff;color:#b5121b">A+</button></div><div id="app"><p class="mu">Loading…</p></div>
+<script>
+const $=id=>document.getElementById(id),app=$('app');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const L=i=>String.fromCharCode(65+i);
+let TK=sessionStorage.getItem('tk')||'';
+async function api(action,d={}){
+ const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,token:TK,...d})});
+ const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||'Request failed');e.status=r.status;throw e}return j}
+const nu = u => String(u || '').replace(/\s+/g, '');
+const pf = v => parseFloat(String(v ?? '').replace(',', '.'));
+const corr = (q, k, a, o) => {
+  if (!a) return false;
+  if (q.type === 'num') {
+    const x = pf(a.v); if (!isFinite(x)) return false;
+    const L = o.multi ? (k.v || []) : [(k.v || [])[0]], t = k.tol || 0;
+    return L.some(n => Math.abs(x - n) <= Math.abs(n) * t / 100 + 1e-9) && (!o.units || !k.u || nu(a.u) === nu(k.u));
+  }
+  return a.s >= 0 && a.s === k.a;
+};
+const att = (q, a) => !!a && (q.type === 'num' ? isFinite(pf(a.v)) : a.s >= 0);
+const earn = (q, k, a, o) => { const p = q.pts ?? 1; return corr(q, k, a, o) ? p : att(q, a) ? -p * (o.neg || 0) / 100 : 0; };
+const o_=()=>({...DEF,...(cfg.set||{})});
+const evn=e=>({tab_hidden:'Switched tab / minimized',window_blur:'Window lost focus',fullscreen_exit:'Exited fullscreen',back:'Returned after '+Math.round((e.d||0)/1000)+'s',resumed:'Reloaded the page',paste:'Tried to copy/paste',keys:'Blocked shortcut',flag:'Flagged the question as unclear'}[e.k]||e.k)+(e.qi!=null&&e.k!=='back'?' (Q'+(e.qi+1)+')':'');
+if(location.hash==='#/prof')profInit();else studentInit();
+
+/* ================= STUDENT ================= */
+let S={sid:'',token:'',v:null,sel:null,t0:0,fs:false,timer:null,info:null,num:{v:'',u:''},ann:null,poll:null};
+async function studentInit(){
+ const saved=JSON.parse(sessionStorage.getItem('att')||'null');
+ try{S.info=await api('info')}catch(e){app.innerHTML='<div class="card">Cannot reach the server.</div>';return}
+ if(saved){S.sid=saved.sid;S.token=saved.token;try{const j=await api('start',{name:saved.name,sid:saved.sid,token:saved.token});return setView(j.view)}catch(e){}}
+ gate()}
+function gate(msg=''){
+ const i=S.info;
+ if(!i.open){app.innerHTML='<h1>ProctorQuiz</h1><div class="card">No exam is open right now.'+(i.opens&&Date.now()<i.opens?' It opens '+new Date(i.opens).toLocaleString()+'.':' Wait for your professor’s go-ahead, then refresh.')+'</div>';return}
+ app.innerHTML=`<h1>${esc(i.title)}</h1><div class="mu">${i.n} questions · about ${Math.ceil(i.sec/60)} min</div>
+ <div class="card"><label class="mu">Full name</label><input id="nm" autocomplete="off"><label class="mu">Student ID</label><input id="sd" autocomplete="off"></div>
+ <div class="card"><b>Rules</b><ul><li>Each question has its own timer. When it ends, your answer locks automatically.</li><li>You can’t go back to earlier questions.</li><li>Stay on this screen. Switching tabs or minimizing${i.s.fsTrack?', or leaving fullscreen,':''} is recorded and shown to your professor.</li><li>After ${i.maxLeaves} departures the exam locks.</li>${i.s.copyBlock?'<li>Copying and pasting are disabled.</li>':''}<li>Reloading counts as leaving.</li></ul></div>
+ <button id="go" onclick="begin()">Start exam</button><p id="msg" class="bad">${esc(msg)}</p>`}
+async function begin(){
+ const name=$('nm').value.trim(),sid=$('sd').value.trim();
+ if(!name||!sid){$('msg').textContent='Enter your name and student ID.';return}
+ $('go').disabled=true;
+ try{const j=await api('start',{name,sid});S.sid=sid;S.token=j.token;sessionStorage.setItem('att',JSON.stringify({sid,name,token:j.token}));
+  if(S.info.s.fsTrack){try{await document.documentElement.requestFullscreen();S.fs=true}catch(e){}}
+  setView(j.view)}catch(e){gate(e.message)}}
+function setView(v){
+ if(S.v&&v.cur!==S.v.cur){S.sel=null;S.num={v:'',u:''}}S.v=v;S.ann=v.ann||null;S.t0=performance.now();
+ if(v.status!=='in_progress'){clearInterval(S.timer);clearInterval(S.poll);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  const lk=v.status==='locked';app.innerHTML=`<h1>${lk?'Exam locked':'Submitted ✔'}</h1><div class="card">${lk?'You left the exam too many times, so it was locked. Your answers so far were saved. Please see your professor.':'Your answers were recorded. You can close this page. Your professor will share results.'}</div>${v.score!==undefined?'<div class="card"><b>Your score: '+v.score+' / '+v.of+'</b></div>':''}${v.receipt?'<div class="card mu">Submission receipt: <b>'+v.receipt+'</b> (screenshot it as proof you finished)</div>':''}`;return}
+ if(!S.timer)S.timer=setInterval(tick,250);if(!S.poll)S.poll=setInterval(spoll,15000);showQ()}
+function showQ(){
+ const v=S.v;
+ app.innerHTML=`<div class="nosel"><div class="row mu" style="justify-content:space-between"><span>Question ${v.cur+1} of ${v.total}</span><b id="tl"></b></div><div class="bar"><i id="tb"></i></div>
+ ${S.fs&&!document.fullscreenElement?'<div class="warn">You left fullscreen. This was recorded. <button onclick="document.documentElement.requestFullscreen().catch(()=>{})">Return</button></div>':''}
+ <div id="ann">${S.ann?'<div class="warn">📢 '+esc(S.ann.text)+'</div>':''}</div>${S.info.s.calc?'<button class="g" onclick="tools()">🧮 Calculator &amp; formulas</button> ':''}<button class="g" onclick="flagQ(this)">⚑ Unclear question?</button>
+ <h2 style="font-size:19px;margin-top:16px">${esc(v.q)}</h2>
+ ${v.type==='num'?numIn():''}${v.choices.map((c,i)=>`<button class="opt ${S.sel===c.i?'on':''}" onclick="S.sel=${c.i};showQ()"><b>${L(i)}.</b> ${esc(c.t)}</button>`).join('')}
+ <button onclick="lock()">Lock in answer</button></div>`;tick()}
+let busy=false;
+/* calculator + formula sheet (in-page overlay, never counts as leaving) */
+const CONST=[['g','9.8 m/s²'],['G','6.674×10⁻¹¹ N·m²/kg²'],['c','3.00×10⁸ m/s'],['k (Coulomb)','8.99×10⁹ N·m²/C²'],['ε₀','8.85×10⁻¹² F/m'],['h','6.626×10⁻³⁴ J·s'],['e','1.602×10⁻¹⁹ C'],['mₑ','9.11×10⁻³¹ kg'],['mₚ','1.673×10⁻²⁷ kg'],['k_B','1.381×10⁻²³ J/K'],['N_A','6.022×10²³ /mol'],['R','8.314 J/(mol·K)']];
+const FORM=['v = v₀ + at','x = x₀ + v₀t + ½at²','v² = v₀² + 2aΔx','F = ma','W = Fd cosθ','KE = ½mv²','PE = mgh','p = mv','τ = rF sinθ','F = Gm₁m₂/r²','F = kq₁q₂/r²','V = IR','P = IV'];
+function tools(){
+ if($('tools'))return;
+ const d=document.createElement('div');d.id='tools';d.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:50;overflow:auto;padding:16px';
+ d.innerHTML=`<div style="max-width:760px;margin:0 auto"><div class="row" style="justify-content:space-between"><b>Calculator &amp; formulas</b><button onclick="$('tools').remove()">Close</button></div>
+ <div class="card"><input id="cx" placeholder="Type or tap, e.g. 9.8*sin(30)" autocomplete="off" onkeydown="if(event.key==='Enter')cc()"><div id="cr" style="font-size:20px;min-height:30px"></div>
+ <div class="row">${['7','8','9','/','sin(','cos(','4','5','6','*','tan(','√(','1','2','3','-','log(','ln(','0','.','^','+','π','e','(',')','E'].map(k=>`<button class="g" onclick="ci('${k}')">${k}</button>`).join('')}<button onclick="cc()">=</button><button class="g" onclick="$('cx').value='';$('cr').textContent=''">C</button></div><div class="mu">Angles are in degrees. Use E for ×10ⁿ, e.g. 3E8.</div></div>
+ <div class="card"><b>Constants</b>${CONST.map(c=>`<div class="mu">${c[0]} = ${c[1]}</div>`).join('')}<b style="display:block;margin-top:8px">Formulas</b>${FORM.map(f=>`<div class="mu">${f}</div>`).join('')}${S.info.s.sheet?'<b style="display:block;margin-top:8px">From your professor</b><div class="mu" style="white-space:pre-wrap">'+esc(S.info.s.sheet)+'</div>':''}</div></div>`;
+ document.body.appendChild(d)}
+const ci=k=>{$('cx').value+=k==='e'?'2.718281828':k};
+function cc(){
+ try{let s=$('cx').value.replace(/π/g,'Math.PI').replace(/√\(/g,'Math.sqrt(').replace(/\^/g,'**').replace(/\bln\(/g,'Math.log(').replace(/\blog\(/g,'Math.log10(').replace(/(\d)E(-?\d)/g,'$1e$2').replace(/\b(a?(?:sin|cos|tan))\(/g,'$1d(');
+  const t=s.replace(/Math\.(PI|sqrt|log10|log)|a?(sin|cos|tan)d/g,'');if(/[^0-9+\-*/().e\s]/.test(t))throw 0;
+  const D=Math.PI/180,f=Function('sind','cosd','tand','asind','acosd','atand','return('+s+')')(x=>Math.sin(x*D),x=>Math.cos(x*D),x=>Math.tan(x*D),x=>Math.asin(x)/D,x=>Math.acos(x)/D,x=>Math.atan(x)/D);
+  $('cr').textContent=isFinite(f)?'= '+(+f.toPrecision(10)):'Error'}catch(e){$('cr').textContent='Error'}}
+const numIn=()=>`<input id="nv" inputmode="decimal" autocomplete="off" placeholder="Your answer (number)" value="${esc(S.num.v)}" oninput="S.num.v=this.value">${S.info.s.units?`<input autocomplete="off" placeholder="Unit (e.g. N)" value="${esc(S.num.u)}" oninput="S.num.u=this.value">`:''}`;
+function flagQ(b){ev('flag');b.textContent='⚑ Reported'}
+async function spoll(){
+ if(!S.v||S.v.status!=='in_progress'||busy)return;
+ try{const j=await api('state',{sid:S.sid,token:S.token});
+  if(j.view.status!=='in_progress'||j.view.cur!==S.v.cur)setView(j.view);
+  else{S.ann=j.view.ann||null;const a=$('ann');if(a)a.innerHTML=S.ann?'<div class="warn">📢 '+esc(S.ann.text)+'</div>':''}}catch(e){}}
+
+function tick(){
+ const v=S.v;if(!v||v.status!=='in_progress')return;
+ const left=v.left-(performance.now()-S.t0),tl=$('tl'),tb=$('tb');
+ if(left<=0){lock();return}
+ if(tl){tl.textContent=Math.ceil(left/1000)+'s';tl.className=left<6000?'bad':'';tb.style.width=left/(v.t*10)+'%'}}
+async function lock(){
+ if(busy)return;busy=true;
+ try{const j=await api('answer',{sid:S.sid,token:S.token,qi:S.v.qi,sel:S.sel,v:S.num.v,u:S.num.u});setView(j.view)}catch(e){}
+ busy=false}
+let away=false;
+async function ev(k){
+ if(!S.v||S.v.status!=='in_progress')return;
+ try{const j=await api('event',{sid:S.sid,token:S.token,k});if(j.view.status!=='in_progress'||k==='back')setView(j.view)}catch(e){}}
+function leave(k){if(!S.v||S.v.status!=='in_progress'||away)return;away=true;ev(k)}
+function back(){if(!away)return;away=false;ev('back')}
+document.addEventListener('visibilitychange',()=>document.hidden?leave('tab_hidden'):back());
+addEventListener('blur',()=>leave('window_blur'));addEventListener('focus',back);
+document.addEventListener('fullscreenchange',()=>{if(S.fs&&S.v&&S.v.status==='in_progress'){if(!document.fullscreenElement)leave('fullscreen_exit');else back()}});
+['copy','cut','paste','contextmenu','dragstart'].forEach(t=>document.addEventListener(t,e=>{
+ if(!S.v||S.v.status!=='in_progress'||location.hash==='#/prof'||!(S.info&&S.info.s&&S.info.s.copyBlock))return;e.preventDefault();if(t!=='contextmenu')ev('paste')}));
+document.addEventListener('keydown',e=>{if(!S.v||S.v.status!=='in_progress'||location.hash==='#/prof'||!(S.info&&S.info.s&&S.info.s.copyBlock))return;
+ if(e.key==='PrintScreen'||((e.ctrlKey||e.metaKey)&&'cpsuaxCPSUAX'.includes(e.key))){e.preventDefault();ev('keys')}});
+
+/* ================= PROFESSOR ================= */
+let cfg=null,keyA=[],qs=[],atts=[],tab='q',open=new Set(),poll=null,SET={};
+const DEF={shuffleQ:true,shuffleC:true,copyBlock:true,fsTrack:true,showScore:false,calc:false,units:false,multi:true,neg:0,sheet:'',opens:0,closes:0,roster:[],maxLeaves:3};
+const blank=()=>({q:'',c:['','','',''],a:0,t:30,type:'mc',pts:1,v:'',tol:2,u:''});
+const qk=k=>k&&k.v?{v:k.v.join(', '),tol:k.tol,u:k.u}:{a:k?.a||0};
+async function profInit(){
+ if(!TK)return login();
+ try{const j=await api('load');cfg=j.exam;keyA=j.key;SET={...DEF,...(cfg?.set||{}),maxLeaves:cfg?.maxLeaves??3};qs=cfg?cfg.questions.map((q,i)=>({v:'',tol:2,u:'',...q,type:q.type||'mc',pts:q.pts??1,...qk(keyA[i])})):[blank()];renderProf()}
+ catch(e){if(e.status===401){TK='';sessionStorage.removeItem('tk');login()}else app.innerHTML='<div class="card">'+esc(e.message)+'</div>'}}
+function login(msg=''){
+ app.innerHTML=`<h1>Professor login</h1><div class="card"><input id="pw" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">Log in</button><p class="bad">${esc(msg)}</p></div>`}
+async function doLogin(){try{const j=await api('login',{password:$('pw').value});TK=j.token;sessionStorage.setItem('tk',TK);profInit()}catch(e){login(e.message)}}
+function renderProf(){
+ const n=cfg?.questions.length||0,st=cfg?.status==='open';
+ app.innerHTML=`<h1>${esc(cfg?.title||'New exam')}</h1><div class="mu">Professor view · ${n} question${n==1?'':'s'} saved · exam is <b class="${st?'ok':'bad'}">${st?'OPEN':'CLOSED'}</b></div>
+ <div class="tabs"><button class="${tab==='q'?'':'g'}" onclick="setTab('q')">Questions</button><button class="${tab==='r'?'':'g'}" onclick="setTab('r')">Results</button></div>`+(tab==='q'?profQ():profR())}
+async function setTab(t){tab=t;clearInterval(poll);if(t==='r'){await loadRes();poll=setInterval(async()=>{await loadRes();if(tab==='r'&&!(document.activeElement&&document.activeElement.id==='an'))renderProf()},10000)}renderProf()}
+async function loadRes(){try{const j=await api('results');cfg=j.exam;keyA=j.key;atts=j.atts}catch(e){}}
+const tgl=(k,t)=>`<label class="ch" style="margin:8px 0"><input type="checkbox" data-s="${k}" ${SET[k]?'checked':''} style="width:auto"> ${t}</label>`;
+const dt=ms=>ms?new Date(ms-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16):'';
+function setSet(e){const t=e.target,k=t.dataset&&t.dataset.s;if(!k)return;SET[k]=t.type==='checkbox'?t.checked:t.type==='datetime-local'?(t.value?new Date(t.value).getTime():0):t.type==='number'?+t.value:t.value}
+document.addEventListener('input',setSet);document.addEventListener('change',setSet);
+const numRow=(q,i)=>`<label class="mu">Accepted answer(s), comma-separated (extra ones count only if “Accept multiple answers” is on)</label><input data-i="${i}" data-f="v" value="${esc(q.v)}" placeholder="9.8, 9.81, 10"><div class="row mu">Tolerance ± <input style="width:80px" type="number" min="0" step="0.1" data-i="${i}" data-f="tol" value="${q.tol}"> % &nbsp; Unit <input style="width:100px" data-i="${i}" data-f="u" value="${esc(q.u)}" placeholder="N"></div>`;
+function profQ(){
+ const st=cfg?.status==='open';
+ return `<div class="card"><label class="mu">Exam title</label><input id="ttl" value="${esc(cfg?.title||'')}" placeholder="Physics 101 – Midterm">
+ <label class="mu">Auto-lock a student after this many times leaving the exam</label><input type="number" min="0" data-s="maxLeaves" value="${SET.maxLeaves}"></div>
+ <div class="card"><b>Exam settings</b>
+ ${tgl('shuffleQ','Shuffle question order per student')}${tgl('shuffleC','Shuffle answer choices per student')}${tgl('copyBlock','Block copy, paste and right-click')}${tgl('fsTrack','Require fullscreen (exiting counts as leaving)')}${tgl('showScore','Show each student their score when they finish')}${tgl('calc','Calculator &amp; formula sheet for students')}${tgl('units','Check units on numeric answers')}${tgl('multi','Accept multiple answers on numeric questions')}
+ <label class="mu">Negative marking: % of a question’s points deducted for a wrong answer (0 = off)</label><input type="number" min="0" max="100" data-s="neg" value="${SET.neg}">
+ <label class="mu">Extra formulas or notes for the formula sheet (optional)</label><textarea data-s="sheet">${esc(SET.sheet)}</textarea>
+ <label class="mu">Opens at (optional)</label><input type="datetime-local" data-s="opens" value="${dt(SET.opens)}">
+ <label class="mu">Closes at (optional)</label><input type="datetime-local" data-s="closes" value="${dt(SET.closes)}">
+ <label class="mu">Class list: only these student IDs can enter (one per line; leave empty to allow anyone)</label><textarea data-s="roster">${esc((Array.isArray(SET.roster)?SET.roster:[]).join('\n'))}</textarea></div>
+ ${qs.map((q,i)=>`<div class="card"><b>Question ${i+1}</b> <select data-i="${i}" data-f="type"><option value="mc" ${q.type!=='num'?'selected':''}>Multiple choice</option><option value="num" ${q.type==='num'?'selected':''}>Numeric answer</option></select> <span class="mu">Points</span> <input style="width:70px" type="number" min="0" step="0.5" data-i="${i}" data-f="pts" value="${q.pts}">
+  <textarea data-i="${i}" data-f="q" placeholder="Type the question">${esc(q.q)}</textarea>
+  ${q.type==='num'?numRow(q,i):''}${(q.type==='num'?[]:q.c).map((c,j)=>`<div class="ch"><input type="radio" name="a${i}" ${q.a===j?'checked':''} data-i="${i}" data-f="a" value="${j}" title="Correct answer"><input data-i="${i}" data-f="c${j}" value="${esc(c)}" placeholder="Choice ${L(j)}"></div>`).join('')}
+  <div class="row mu">Correct = selected circle · Time: <input style="width:80px" type="number" min="5" data-i="${i}" data-f="t" value="${q.t}"> seconds <button class="d" onclick="qs.splice(${i},1);renderProf()">Delete</button></div></div>`).join('')}
+ <div class="row"><button class="g" onclick="qs.push(blank());renderProf()">+ Add question</button><button class="g" onclick="$('imp').hidden=!$('imp').hidden">Paste many</button></div>
+ <div id="imp" class="card" hidden><div class="mu">One block per question, blank line between. Example:<br>What is the SI unit of force?<br>A) Joule<br>B) Newton<br>C) Watt<br>D) Pascal<br>Answer: B<br>Time: 20</div><textarea id="imt" style="min-height:140px"></textarea><button onclick="importQ()">Import</button></div>
+ <div class="row" style="margin-top:14px"><button onclick="saveExam()">Save exam</button><button class="g" onclick="setStatus(${st?0:1})">${st?'Close exam':'Open exam to students'}</button></div><div id="msg" class="mu"></div>
+ <p class="mu">Student link: <b>${location.origin}/</b> · Students never receive the answer key.</p>`}
+document.addEventListener('input',e=>{const d=e.target.dataset;if(!d||d.i===undefined)return;const q=qs[+d.i];if(d.f==='q')q.q=e.target.value;else if(d.f==='t')q.t=+e.target.value||30;else if(d.f==='pts')q.pts=+e.target.value;else if(d.f==='v')q.v=e.target.value;else if(d.f==='tol')q.tol=+e.target.value;else if(d.f==='u')q.u=e.target.value;else if(d.f[0]==='c')q.c[+d.f.slice(1)]=e.target.value});
+document.addEventListener('change',e=>{const d=e.target.dataset;if(d&&d.f==='a')qs[+d.i].a=+e.target.value;if(d&&d.f==='type'){qs[+d.i].type=e.target.value;renderProf()}});
+function importQ(){
+ const add=$('imt').value.trim().split(/\n\s*\n/).map(b=>{const ls=b.split('\n').map(x=>x.trim()).filter(Boolean);const q={q:'',c:[],a:0,t:30,type:'mc',pts:1,v:'',tol:2,u:''};let ans='';
+  ls.forEach(l=>{let m;if(m=l.match(/^([A-Ea-e])[\).]\s*(.+)/))q.c.push(m[2]);else if(m=l.match(/^answer\s*:\s*([A-Ea-e])/i))ans=m[1].toUpperCase();else if(m=l.match(/^time\s*:\s*(\d+)/i))q.t=+m[1];else if(!q.q)q.q=l.replace(/^\d+[\).]\s*/,'')});
+  q.a=Math.max(0,ans?ans.charCodeAt(0)-65:0);return q}).filter(q=>q.q&&q.c.length>=2);
+ qs=qs.filter(q=>q.q||q.c.some(Boolean)).concat(add);renderProf();$('msg').textContent=add.length+' question(s) imported. Remember to Save.'}
+async function saveExam(){
+ const bad=qs.findIndex(q=>!q.q.trim()||(q.type==='num'?!String(q.v).split(',').some(x=>isFinite(parseFloat(x))):q.c.some(c=>!c.trim())));
+ if(!qs.length||bad>=0){$('msg').textContent=qs.length?`Question ${bad+1} is incomplete.`:'Add at least one question.';return}
+ try{await api('save',{title:$('ttl').value,maxLeaves:+SET.maxLeaves||0,settings:{...SET,roster:Array.isArray(SET.roster)?SET.roster:String(SET.roster||'').split('\n').map(x=>x.trim()).filter(Boolean)},questions:qs});const j=await api('load');cfg=j.exam;$('msg').textContent='Saved ✔'}catch(e){$('msg').textContent='Could not save: '+e.message}}
+async function setStatus(o){try{await api('status',{open:o});cfg.status=o?'open':'closed';renderProf()}catch(e){alert(e.message)}}
+
+const score=a=>{let s=0;cfg.questions.forEach((q,i)=>s+=earn(q,keyA[i]||{},a.ans&&a.ans[i],o_()));return Math.max(0,Math.round(s*100)/100)};
+const total=()=>cfg.questions.reduce((s,q)=>s+(q.pts??1),0);
+const kt=(q,k)=>q.type==='num'?(k.v||[]).join(' / ')+(k.u?' '+k.u:''):L(k.a);
+function profR(){
+ if(!cfg)return'<p class="mu">Save the exam first.</p>';
+ const n=cfg.questions.length;
+ const rows=[...atts].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(a=>{
+  const ev=open.has(a.sid)?`<tr><td colspan="6" class="mu" style="white-space:normal">${(a.ev||[]).map(e=>`${new Date(e.t).toLocaleTimeString()} · ${evn(e)}`).join('<br>')||'No events'}</td></tr>`:'';
+  return `<tr><td onclick="tg('${esc(a.sid).replace(/'/g,'')}')" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${esc(a.sid)}</span></td><td>${a.status==='in_progress'?'Q'+((a.cur||0)+1)+'/'+n:a.status==='locked'?'<span class="bad">Locked</span>':'Done'}</td><td>${score(a)}/${total()}</td><td class="${a.leaves?'bad':''}">${a.leaves||0}×</td><td>${Math.round((a.away||0)/1000)}s</td><td><button class="d" onclick="resetA('${esc(a.sid).replace(/'/g,'')}')">Reset</button></td></tr>${ev}`}).join('');
+ return `<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div><div class="row"><button onclick="exportX()">Download Excel (.xlsx)</button><button class="g" onclick="setTab('r')">Refresh</button></div><p class="mu">Updates every 10 s. Tap a name for the leave/return log. “Reset” lets a student retake.</p>
+ <div class="card scroll"><table><tr><th>Student</th><th>Status</th><th>Score</th><th>Left</th><th>Away</th><th></th></tr>${rows||'<tr><td colspan="6" class="mu">No attempts yet.</td></tr>'}</table></div>`}
+const tg=id=>{open.has(id)?open.delete(id):open.add(id);renderProf()};
+async function sendAnn(c){try{await api('announce',{text:c?'':$('an').value});if(c)$('an').value='';alert(c?'Cleared':'Sent to everyone taking the exam')}catch(e){alert(e.message)}}
+async function resetA(id){if(confirm('Delete this attempt so the student can retake?')){await api('reset',{sid:id});await loadRes();renderProf()}}
+function exportX(){
+ const Q=cfg.questions,k=keyA,wb=XLSX.utils.book_new();
+ const res=[['Student','Student ID','Score','Total','Percent','Status','Times left exam','Seconds away','Receipt',...Q.map((_,i)=>'Q'+(i+1))]];
+ const ans=[['Student','Student ID',...Q.map((q,i)=>'Q'+(i+1)+' (key '+kt(q,k[i]||{})+')')]];
+ atts.forEach(a=>{const s=score(a);res.push([a.name,a.sid,s,total(),Math.round(s/total()*100)/100,a.status,a.leaves||0,Math.round((a.away||0)/1000),a.receipt||'',...Q.map((q,i)=>!a.ans||!a.ans[i]?'—':corr(q,k[i]||{},a.ans[i],o_())?'Correct':'Wrong')]);
+  ans.push([a.name,a.sid,...Q.map((q,i)=>!a.ans||!a.ans[i]?'—':q.type==='num'?(a.ans[i].v||'—')+(a.ans[i].u?' '+a.ans[i].u:''):a.ans[i].s>=0?L(a.ans[i].s):'—')])});
+ const item=[['Q#','Question','Correct answer','% correct','Avg seconds','Time limit']];
+ Q.forEach((q,i)=>{const g=atts.filter(a=>a.ans&&a.ans[i]);item.push([i+1,q.q,q.type==='num'?kt(q,k[i]||{}):L(k[i].a)+') '+q.c[k[i].a],g.length?Math.round(g.filter(a=>corr(q,k[i]||{},a.ans[i],o_())).length/g.length*100)/100:'',g.length?Math.round(g.reduce((t,a)=>t+a.ans[i].ms,0)/g.length/100)/10:'',q.t])});
+ const log=[['Student','Student ID','Time','Event','Question']];
+ atts.forEach(a=>(a.ev||[]).forEach(e=>log.push([a.name,a.sid,new Date(e.t).toLocaleString(),evn(e).replace(/ \(Q\d+\)$/,''),e.qi!=null?e.qi+1:''])));
+ [['Results',res],['Answers',ans],['Item analysis',item],['Activity log',log]].forEach(([n,d])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d),n));
+ XLSX.writeFile(wb,(cfg.title||'exam').replace(/[^\w\- ]/g,'')+' results.xlsx')}
+</script></body></html>
