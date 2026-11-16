@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>ProctorQuiz · Professor</title>
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head><body>
+<div id="hd"><span id="sch">ProctorQuiz</span> · Professor</div>
+<div id="app" class="wide"><p class="mu">Loading…</p></div>
+<script src="/common.js"></script>
+<script>
+/* PROFESSOR PAGE. Every action here is checked by the server with a signed login token. */
+const DEF = { shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: false, calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], school: 'UNIVERSITY OF THE EAST', followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '' };
+let cfg = null, qs = [], SET = { ...DEF, maxLeaves: 3 }, title = '', atts = [], qstat = [], tab = 'q', open = new Set(), poll = null, IMG = {};
+const blank = () => ({ q: '', c: ['', '', '', ''], a: 0, t: 30, type: 'mc', pts: 1, v: '', tol: 2, u: '', mode: 'fixed', vars: [], f: '', fu: null });
+const fromSrv = (q, k = {}) => ({
+  q: q.q, type: q.type || 'mc', c: q.c && q.c.length ? [...q.c] : ['', '', '', ''], a: k.a || 0, t: q.t, pts: q.pts ?? 1,
+  v: (k.v || []).join(', '), tol: k.tol ?? 2, u: k.u || '', mode: k.f ? 'rand' : 'fixed', vars: (q.vars || []).map(x => ({ ...x })), f: k.f || '',
+  fu: q.fu ? { q: q.fu.q, c: [...q.fu.c], a: k.fa || 0, t: q.fu.t } : null,
+});
+const evn = e => ({ tab_hidden: 'Switched tab / app', window_blur: 'Window lost focus', fullscreen_exit: 'Exited fullscreen', back: 'Returned after ' + Math.round((e.d || 0) / 1000) + 's', resumed: 'Reloaded the page', paste: 'Tried to copy/paste', keys: 'Blocked shortcut', flag: 'Flagged the question as unclear', nofs: 'Fullscreen not available on this device' }[e.k] || e.k) + (e.qi != null && e.k !== 'back' ? ' (Q' + (e.qi + 1) + ')' : '');
+const fmt = x => String(+Number(x).toPrecision(6));
+const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(vars, k) ? fmt(vars[k]) : m));
+const varTxt = v => Object.entries(v || {}).map(([k, x]) => k + ' = ' + x).join(', ');
+
+async function profInit() {
+  if (!TK) return login();
+  try {
+    const j = await api('load'); cfg = j.exam;
+    SET = { ...DEF, ...(cfg?.set || {}), maxLeaves: cfg?.maxLeaves ?? 3 }; title = cfg?.title || '';
+    qs = cfg ? cfg.questions.map((q, i) => fromSrv(q, j.key[i])) : [blank()];
+    setHeader(SET.school); renderProf();
+  } catch (e) {
+    if (e.status === 401) { TK = ''; try { sessionStorage.removeItem('tk'); } catch (x) { /* ignore */ } login(); }
+    else app.innerHTML = '<div class="card">' + esc(e.message) + '</div>';
+  }
+}
+function login(msg = '') {
+  app.innerHTML = `<h1>Professor login</h1><div class="card"><input id="pw" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">Log in</button><p class="bad">${esc(msg)}</p></div>`;
+}
+async function doLogin() {
+  try { const j = await api('login', { password: $('pw').value }); TK = j.token; try { sessionStorage.setItem('tk', TK); } catch (e) { /* ignore */ } profInit(); }
+  catch (e) { login(e.message); }
+}
+function renderProf() {
+  const n = cfg?.questions.length || 0, st = cfg?.status === 'open';
+  const T = (k, t) => `<button class="${tab === k ? '' : 'g'}" onclick="setTab('${k}')">${t}</button>`;
+  app.innerHTML = `<h1>${esc(title || 'New exam')}</h1><div class="mu">${n} question${n === 1 ? '' : 's'} saved · exam is <b class="${st ? 'ok' : 'bad'}">${st ? 'OPEN' : 'CLOSED'}</b></div>
+ <div class="tabs">${T('q', 'Questions')}${T('s', 'Settings')}${T('r', 'Results')}</div>` + (tab === 'q' ? profQ() : tab === 's' ? profS() : profR());
+}
+async function setTab(t) {
+  tab = t; clearInterval(poll);
+  if (t === 'r') {
+    await loadRes();
+    poll = setInterval(async () => { await loadRes(); const a = document.activeElement; if (tab === 'r' && !(a && (a.id === 'an' || a.tagName === 'INPUT'))) renderProf(); }, 10000);
+  }
+  renderProf();
+}
+async function loadRes() { try { const j = await api('results'); if (j.exam) cfg = j.exam; atts = j.atts; qstat = j.qs; } catch (e) { /* keep old */ } }
+
+/* ---------------- settings ---------------- */
+const tgl = (k, t) => `<label class="ch" style="margin:8px 0"><input type="checkbox" data-s="${k}" ${SET[k] ? 'checked' : ''}> ${t}</label>`;
+const dt = ms => ms ? new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+function setSet(e) { const t = e.target, k = t.dataset && t.dataset.s; if (!k) return; SET[k] = t.type === 'checkbox' ? t.checked : t.type === 'datetime-local' ? (t.value ? new Date(t.value).getTime() : 0) : t.type === 'number' ? +t.value : t.value; }
+document.addEventListener('input', setSet); document.addEventListener('change', setSet);
+function profS() {
+  const st = cfg?.status === 'open';
+  return `<div class="card"><label class="mu">School or header text (shown at the top of every page)</label><input data-s="school" value="${esc(SET.school)}" placeholder="UNIVERSITY OF THE EAST">
+ <label class="mu">Exam title</label><input id="ttl" value="${esc(title)}" placeholder="Physics 101 – Midterm">
+ <label class="mu">Lock a student when they leave the exam this many times (0 = never lock)</label><input type="number" min="0" data-s="maxLeaves" value="${SET.maxLeaves}"></div>
+ <div class="card"><b>Exam settings</b>
+ ${tgl('shuffleQ', 'Shuffle question order per student')}${tgl('shuffleC', 'Shuffle answer choices per student')}${tgl('copyBlock', 'Block copy, paste and right-click')}${tgl('fsTrack', 'Ask for fullscreen where the device supports it (leaving it counts as leaving)')}${tgl('showScore', 'Show each student their score when they finish')}${tgl('calc', 'Calculator &amp; formula sheet for students')}${tgl('units', 'Check units on numeric answers')}${tgl('multi', 'Accept multiple answers on fixed numeric questions')}
+ <label class="mu">Negative marking: % of a question’s points deducted for a wrong answer (0 = off)</label><input type="number" min="0" max="100" data-s="neg" value="${SET.neg}">
+ <label class="mu">Extra formulas or notes for the formula sheet (optional)</label><textarea data-s="sheet">${esc(SET.sheet)}</textarea>
+ <label class="mu">Opens at (optional)</label><input type="datetime-local" data-s="opens" value="${dt(SET.opens)}">
+ <label class="mu">Closes at (optional)</label><input type="datetime-local" data-s="closes" value="${dt(SET.closes)}">
+ <label class="mu">Class list: only these student IDs can enter (one per line; leave empty to allow anyone)</label><textarea data-s="roster">${esc((Array.isArray(SET.roster) ? SET.roster : []).join('\n'))}</textarea></div>
+ <div class="card"><b>Integrity checks</b>
+ <label class="mu">Follow-up questions per student (0 to 3). Asked after the exam, only about questions the student got right, using their own numbers. A student who got it right but fails the follow-up is flagged.</label><input type="number" min="0" max="3" data-s="followUps" value="${SET.followUps}">
+ <label class="mu">Handwritten work spot-check: how many of each student’s problems to ask a photo for (0 to 3, 0 = off)</label><input type="number" min="0" max="3" data-s="spot" value="${SET.spot}">
+ <label class="mu">Minutes students have to upload the photos after finishing</label><input type="number" min="1" max="1440" data-s="spotMins" value="${SET.spotMins}"></div>
+ <div class="card"><b>Google Sheets (live scores)</b><p class="mu">Each finished attempt is added to your Google Sheet automatically. Setup steps are in the README (about 3 minutes). The sheet key is a password you invent; it must match the one inside the Google script.</p>
+ <label class="mu">Web app URL (ends in /exec)</label><input data-s="sheetUrl" value="${esc(SET.sheetUrl)}" placeholder="https://script.google.com/macros/s/.../exec">
+ <label class="mu">Sheet key</label><input data-s="sheetKey" value="${esc(SET.sheetKey)}">
+ <div class="row"><button class="g" onclick="sheetAct('sheetTest')">Test connection</button><button class="g" onclick="sheetAct('sheetPush')">Send all results now</button></div><div id="shmsg" class="mu"></div></div>
+ ${saveBar(st)}`;
+}
+async function sheetAct(a) {
+  const m = $('shmsg'); m.textContent = 'Working…';
+  try { const j = await api(a, { url: SET.sheetUrl, key: SET.sheetKey }); m.innerHTML = '<span class="ok">' + (a === 'sheetTest' ? 'Connected ✔' : 'Sent ' + j.n + ' row(s) ✔') + '</span>'; }
+  catch (e) { m.innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
+}
+
+/* ---------------- questions ---------------- */
+const numRow = (q, i) => `<label class="mu">Accepted answer(s), comma-separated (extra ones count only if “Accept multiple answers” is on)</label><input data-i="${i}" data-f="v" value="${esc(q.v)}" placeholder="9.8, 9.81, 10">`;
+const tolRow = (q, i) => `<div class="row mu">Tolerance ± <input class="sm" type="number" min="0" step="0.1" data-i="${i}" data-f="tol" value="${q.tol}"> % &nbsp; Unit <input class="md" data-i="${i}" data-f="u" value="${esc(q.u)}" placeholder="N"></div>`;
+const randRow = (q, i) => `<div class="mu" style="margin-top:6px">Write the numbers in the question as <code>{name}</code>, for example “mass {m} kg”. Each student gets different values.</div>
+ ${q.vars.map((v, j) => `<div class="vr"><input data-i="${i}" data-j="${j}" data-f="vn" value="${esc(v.n)}" placeholder="name" style="width:70px"> <span class="mu">from</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vmin" value="${esc(v.min)}"> <span class="mu">to</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vmax" value="${esc(v.max)}"> <span class="mu">step</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vstep" value="${esc(v.step)}"> <button class="d s" onclick="qs[${i}].vars.splice(${j},1);renderProf()">×</button></div>`).join('')}
+ <button class="g s" onclick="qs[${i}].vars.push({n:'',min:1,max:10,step:1});renderProf()">+ Add variable</button>
+ <label class="mu">Answer formula (use + - * / ^ ( ), your variable names, pi, and sqrt, sin, cos, tan [degrees], ln, log, abs)</label><input data-i="${i}" data-f="fm" value="${esc(q.f)}" placeholder="0.5*a*t^2">
+ ${tolRow(q, i)}<div class="row"><button class="g s" onclick="prev(${i})">Preview a sample student</button></div><div class="mu" id="pv${i}"></div>`;
+const fuRow = (q, i) => `<label class="ch mu" style="margin-top:8px"><input type="checkbox" data-i="${i}" data-f="fuOn" ${q.fu ? 'checked' : ''}> Add a follow-up question (used only if “Follow-up questions” in Settings is above 0)</label>`
+  + (q.fu ? `<div class="card"><div class="mu">Follow-up text. You can use <code>{name}</code> for the student’s own numbers and <code>{ans}</code> for their correct answer.</div><textarea data-i="${i}" data-f="fq" placeholder="If the time were doubled, the distance would be…">${esc(q.fu.q)}</textarea>
+ ${q.fu.c.map((c, j) => `<div class="ch"><input type="radio" name="fa${i}" ${q.fu.a === j ? 'checked' : ''} data-i="${i}" data-f="fa" value="${j}" title="Correct answer"><input data-i="${i}" data-f="fc${j}" value="${esc(c)}" placeholder="Choice ${L(j)}"></div>`).join('')}
+ <div class="row mu">Time: <input class="sm" type="number" min="5" data-i="${i}" data-f="ft" value="${q.fu.t}"> seconds</div></div>` : '');
+function profQ() {
+  const st = cfg?.status === 'open';
+  return (st ? '<div class="warn">The exam is open, so questions are locked. Close the exam to edit them.</div>' : '') + qs.map((q, i) => `<div class="card"><b>Question ${i + 1}</b> <select data-i="${i}" data-f="type"><option value="mc" ${q.type !== 'num' ? 'selected' : ''}>Multiple choice</option><option value="num" ${q.type === 'num' ? 'selected' : ''}>Numeric answer</option></select> <span class="mu">Points</span> <input class="sm" type="number" min="0" step="0.5" data-i="${i}" data-f="pts" value="${q.pts}">
+  ${q.type === 'num' ? `<select data-i="${i}" data-f="mode"><option value="fixed" ${q.mode !== 'rand' ? 'selected' : ''}>Same numbers for everyone</option><option value="rand" ${q.mode === 'rand' ? 'selected' : ''}>Different numbers per student</option></select>` : ''}
+  <textarea data-i="${i}" data-f="q" placeholder="Type the question">${esc(q.q)}</textarea>
+  ${q.type === 'num' ? (q.mode === 'rand' ? randRow(q, i) : numRow(q, i) + tolRow(q, i)) : q.c.map((c, j) => `<div class="ch"><input type="radio" name="a${i}" ${q.a === j ? 'checked' : ''} data-i="${i}" data-f="a" value="${j}" title="Correct answer"><input data-i="${i}" data-f="c${j}" value="${esc(c)}" placeholder="Choice ${L(j)}"></div>`).join('')}
+  ${fuRow(q, i)}
+  <div class="row mu">${q.type === 'num' ? '' : 'Correct = selected circle · '}Time: <input class="sm" type="number" min="5" data-i="${i}" data-f="t" value="${q.t}"> seconds <button class="d" onclick="qs.splice(${i},1);renderProf()">Delete</button></div></div>`).join('')
+    + `<div class="row"><button class="g" onclick="qs.push(blank());renderProf()">+ Add question</button><button class="g" onclick="$('imp').hidden=!$('imp').hidden">Paste many</button></div>
+ <div id="imp" class="card" hidden><div class="mu">Multiple-choice only. One block per question, blank line between. Example:<br>What is the SI unit of force?<br>A) Joule<br>B) Newton<br>C) Watt<br>D) Pascal<br>Answer: B<br>Time: 20</div><textarea id="imt" style="min-height:140px"></textarea><button onclick="importQ()">Import</button></div>` + saveBar(st);
+}
+const saveBar = st => `<div class="row" style="margin-top:14px"><button onclick="saveExam()" ${st ? 'disabled' : ''}>Save exam</button><button class="g" onclick="setStatus(${st ? 0 : 1})">${st ? 'Close exam' : 'Open exam to students'}</button></div><div id="msg" class="mu"></div>
+ <p class="mu">Student link: <b>${esc(location.origin)}/</b> · Students never receive the answer key, the formulas or this page’s address.</p>`;
+document.addEventListener('input', e => {
+  const d = e.target.dataset; if (!d || d.i === undefined) return; const q = qs[+d.i], f = d.f, v = e.target.value;
+  if (f === 'q') q.q = v; else if (f === 't') q.t = +v || 30; else if (f === 'pts') q.pts = +v; else if (f === 'v') q.v = v; else if (f === 'tol') q.tol = +v; else if (f === 'u') q.u = v; else if (f === 'fm') q.f = v;
+  else if (f === 'vn' || f === 'vmin' || f === 'vmax' || f === 'vstep') { const x = q.vars[+d.j]; if (f === 'vn') x.n = v; else if (f === 'vmin') x.min = v; else if (f === 'vmax') x.max = v; else x.step = v; }
+  else if (f === 'fq') q.fu.q = v; else if (f === 'ft') q.fu.t = +v || 25; else if (f.startsWith('fc')) q.fu.c[+f.slice(2)] = v; else if (f[0] === 'c') q.c[+f.slice(1)] = v;
+});
+document.addEventListener('change', e => {
+  const d = e.target.dataset; if (!d || d.i === undefined) return; const q = qs[+d.i];
+  if (d.f === 'a') q.a = +e.target.value;
+  else if (d.f === 'fa') q.fu.a = +e.target.value;
+  else if (d.f === 'type') { q.type = e.target.value; renderProf(); }
+  else if (d.f === 'mode') { q.mode = e.target.value; if (q.mode === 'rand' && !q.vars.length) q.vars.push({ n: '', min: 1, max: 10, step: 1 }); renderProf(); }
+  else if (d.f === 'fuOn') { q.fu = e.target.checked ? (q.fu || { q: '', c: ['', '', '', ''], a: 0, t: 25 }) : null; renderProf(); }
+});
+const payload = () => qs.map(q => ({ q: q.q, type: q.type, c: q.c, a: q.a, t: q.t, pts: q.pts, v: q.v, tol: q.tol, u: q.u, vars: q.mode === 'rand' ? q.vars : [], f: q.mode === 'rand' ? q.f : '', fu: q.fu }));
+async function prev(i) {
+  const m = $('pv' + i); m.textContent = 'Working…';
+  try {
+    const p = payload()[i], j = await api('preview', { q: p, i });
+    m.innerHTML = '<div class="card"><b>Sample student</b> (' + esc(varTxt(j.vars)) + ')<br>' + esc(j.text) + '<br><span class="ok">Correct answer: ' + esc(j.exp) + '</span>' + (j.fu ? '<br><span class="mu">Follow-up: ' + esc(j.fu.q) + ' (correct: ' + esc(j.fu.c[j.fu.a]) + ')</span>' : '') + '</div>';
+  } catch (e) { m.innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
+}
+function importQ() {
+  const add = $('imt').value.trim().split(/\n\s*\n/).map(b => {
+    const ls = b.split('\n').map(x => x.trim()).filter(Boolean), q = blank(); q.c = []; let ans = '';
+    ls.forEach(l => { let m; if (m = l.match(/^([A-Ea-e])[).]\s*(.+)/)) q.c.push(m[2]); else if (m = l.match(/^answer\s*:\s*([A-Ea-e])/i)) ans = m[1].toUpperCase(); else if (m = l.match(/^time\s*:\s*(\d+)/i)) q.t = +m[1]; else if (!q.q) q.q = l.replace(/^\d+[).]\s*/, ''); });
+    q.a = Math.max(0, ans ? ans.charCodeAt(0) - 65 : 0); return q;
+  }).filter(q => q.q && q.c.length >= 2);
+  qs = qs.filter(q => q.q || q.c.some(Boolean)).concat(add); renderProf(); $('msg').textContent = add.length + ' question(s) imported. Remember to Save.';
+}
+async function saveExam() {
+  const ttl = $('ttl'); if (ttl) title = ttl.value;
+  const roster = Array.isArray(SET.roster) ? SET.roster : String(SET.roster || '').split('\n').map(x => x.trim()).filter(Boolean);
+  try {
+    await api('save', { title, maxLeaves: +SET.maxLeaves || 0, settings: { ...SET, roster }, questions: payload() });
+    const j = await api('load'); cfg = j.exam; SET = { ...DEF, ...(cfg.set || {}), maxLeaves: cfg.maxLeaves }; setHeader(SET.school); renderProf(); $('msg').innerHTML = '<span class="ok">Saved ✔</span> The exam is closed until you open it.';
+  } catch (e) { $('msg').innerHTML = '<span class="bad">Could not save: ' + esc(e.message) + '</span>'; }
+}
+async function setStatus(o) {
+  try {
+    const j = await api('status', { open: o }); cfg.status = o ? 'open' : 'closed'; renderProf();
+    if (o && j.old > 0) alert(j.old + ' attempt(s) from before already exist. Those students will see “already submitted”. If this is a new exam, close it and use “Clear all attempts” in Results first.');
+  } catch (e) { alert(e.message); }
+}
+
+/* ---------------- results ---------------- */
+function profR() {
+  if (!cfg) return '<p class="mu">Save the exam first.</p>';
+  const n = cfg.questions.length, done = atts.filter(a => a.status !== 'in_progress'), hi = atts.filter(a => a.risk === 'High'), me = atts.filter(a => a.risk === 'Medium');
+  const avg = done.length ? Math.round(done.reduce((s, a) => s + a.pct, 0) / done.length * 100) : 0;
+  const rows = [...atts].sort((a, b) => b.pts - a.pts || (a.name || '').localeCompare(b.name || '')).map(a => {
+    const sid = esc(a.sid);
+    const det = open.has(a.sid) ? `<tr><td colspan="8" style="white-space:normal;background:var(--bg)">${detail(a)}</td></tr>` : '';
+    return `<tr><td data-act="tg" data-sid="${sid}" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${sid}</span></td><td>${a.status === 'in_progress' ? 'Q' + esc(a.prog) : a.status === 'locked' ? '<span class="bad">Locked</span>' : 'Done'}</td><td>${a.score}/${a.of}</td><td><span class="risk r-${a.risk}">${a.risk}</span>${a.review ? '<br><span class="mu">' + (a.review === 'cleared' ? 'Cleared' : 'Needs oral check') + '</span>' : ''}</td><td class="${a.leaves ? 'bad' : ''}">${a.leaves}×</td><td>${a.away}s</td><td>${a.workReq.length ? a.work.length + '/' + a.workReq.length : '—'}</td><td><button class="d" data-act="reset" data-sid="${sid}">Reset</button></td></tr>${det}`;
+  }).join('');
+  const items = qstat.map(q => `<tr><td>Q${q.n}</td><td style="white-space:normal;min-width:200px">${esc(q.q)}${q.rand ? ' <span class="mu">(random numbers)</span>' : ''}</td><td style="white-space:normal">${esc(q.key)}</td><td>${q.pct == null ? '' : Math.round(q.pct * 100) + '%'}</td><td>${q.avg == null ? '' : Math.round(q.avg / 100) / 10 + 's'}</td><td>${q.t}s</td></tr>`).join('');
+  return `<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div>
+ <div class="row"><button onclick="exportX()">Download Excel (.xlsx)</button><button class="g" onclick="setTab('r')">Refresh</button>${SET.sheetUrl ? '<button class="g" onclick="pushNow(this)">Send to Google Sheet</button>' : ''}<button class="d" data-act="clear">Clear all attempts</button></div>
+ <div class="row mu" style="margin:10px 0"><span>${atts.length} attempt(s)</span><span>· ${done.length} finished</span><span>· class average ${avg}%</span><span>· <b class="${hi.length ? 'bad' : ''}">${hi.length} high</b> / ${me.length} medium risk</span></div>
+ <p class="mu">Updates every 10 s. Tap a name for details. Risk is a hint to look closer (a person decides), built from tab switching, answer speed, similarity to other students, follow-up and work-photo checks.</p>
+ <div class="card scroll"><table><tr><th>Student</th><th>Status</th><th>Score</th><th>Risk</th><th>Left</th><th>Away</th><th>Work</th><th></th></tr>${rows || '<tr><td colspan="8" class="mu">No attempts yet.</td></tr>'}</table></div>
+ <details class="card"><summary><b>Item analysis</b> (which questions the class missed)</summary><div class="scroll"><table><tr><th>Q</th><th>Question</th><th>Key</th><th>% correct</th><th>Avg time</th><th>Limit</th></tr>${items}</table></div></details>`;
+}
+function detail(a) {
+  const sid = esc(a.sid);
+  const fl = a.flags.length ? a.flags.map(f => `<div class="fl ${f.w >= 2 ? 'bad' : ''}">${f.w >= 2 ? '⚠' : '•'} ${esc(f.txt)}</div>`).join('') : '<div class="mu">No flags.</div>';
+  const rw = a.rows.map((r, i) => r.ok === -1 ? '' : `<tr><td>Q${i + 1}</td><td>${esc(varTxt(r.vars))}</td><td>${esc(r.got)}</td><td>${esc(r.exp)}</td><td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? '✔' : r.to ? 'time' : '✘'}</td><td>${Math.round(r.ms / 100) / 10}s</td></tr>`).join('');
+  const fu = a.fu.length ? '<div class="mu">Follow-ups: ' + a.fu.map(f => 'Q' + f.n + (f.ok ? ' ✔' : ' ✘')).join(', ') + '</div>' : '';
+  let work = '';
+  if (a.workReq.length) {
+    work = '<b>Handwritten work</b>' + a.workReq.map(n => {
+      const r = a.rows[n - 1], img = IMG[a.sid] && IMG[a.sid][n];
+      return `<div class="card"><div>Q${n}: ${esc(fill(cfg.questions[n - 1].q, r.vars))}</div><div class="mu">Their answer: <b>${esc(r.got)}</b> · Expected: <b>${esc(r.exp)}</b></div>${a.work.includes(n) ? (img ? `<img class="thumb" src="${esc(img)}" alt="Work for Q${n}">` : `<button class="g s" data-act="work" data-sid="${sid}">Load photo</button>`) : '<div class="bad">No photo uploaded' + (Date.now() > a.workBy + 60000 ? '' : ' yet') + '</div>'}</div>`;
+    }).join('');
+  }
+  const log = a.ev.map(e => new Date(e.t).toLocaleTimeString() + ' · ' + esc(evn(e))).join('<br>') || 'No events';
+  return `<div class="row" style="margin-bottom:6px"><b>Flags</b> <span class="risk r-${a.risk}">${a.risk}</span><span class="mu">· seed ${esc(a.seed)} · receipt ${esc(a.receipt)}</span></div>${fl}${fu}
+ <div class="row" style="margin:8px 0"><button class="g s" data-act="rev" data-v="cleared" data-sid="${sid}">Mark cleared</button><button class="g s" data-act="rev" data-v="oral" data-sid="${sid}">Needs oral check</button><button class="g s" data-act="rev" data-v="" data-sid="${sid}">Clear mark</button></div>
+ <div class="scroll"><table><tr><th>Q</th><th>Their numbers</th><th>Their answer</th><th>Expected</th><th></th><th>Time</th></tr>${rw}</table></div>${work}<details style="margin-top:8px"><summary class="mu">Activity log</summary><div class="mu" style="white-space:normal">${log}</div></details>`;
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return; const act = b.dataset.act, sid = b.dataset.sid;
+  try {
+    if (act === 'tg') { open.has(sid) ? open.delete(sid) : open.add(sid); if (open.has(sid)) { const a = atts.find(x => x.sid === sid); if (a && a.work.length && !IMG[sid]) { try { IMG[sid] = (await api('work', { sid })).imgs; } catch (x) { /* ignore */ } } } renderProf(); }
+    else if (act === 'work') { b.textContent = 'Loading…'; IMG[sid] = (await api('work', { sid })).imgs; renderProf(); }
+    else if (act === 'rev') { await api('review', { sid, review: b.dataset.v }); await loadRes(); renderProf(); }
+    else if (act === 'reset') { if (confirm('Delete this attempt so the student can retake?')) { await api('reset', { sid }); delete IMG[sid]; await loadRes(); renderProf(); } }
+    else if (act === 'clear') { if (confirm('Delete ALL attempts and work photos? This cannot be undone. Export to Excel first.')) { const j = await api('clear'); IMG = {}; open.clear(); await loadRes(); renderProf(); alert('Cleared ' + j.n + ' attempt(s).'); } }
+  } catch (x) { alert(x.message); }
+});
+async function sendAnn(c) { try { await api('announce', { text: c ? '' : $('an').value }); if (c) $('an').value = ''; alert(c ? 'Cleared' : 'Sent to everyone taking the exam'); } catch (e) { alert(e.message); } }
+async function pushNow(b) { b.disabled = true; try { const j = await api('sheetPush', { url: SET.sheetUrl, key: SET.sheetKey }); alert('Sent ' + j.n + ' row(s) to Google Sheets.'); } catch (e) { alert(e.message); } b.disabled = false; }
+
+function exportX() {
+  if (typeof XLSX === 'undefined') { alert('The Excel library did not load. Check your internet connection and refresh.'); return; }
+  const wb = XLSX.utils.book_new(), Q = cfg.questions;
+  const mark = r => r.ok === -1 ? '—' : r.ok ? 'Correct' : r.to ? 'Timed out' : 'Wrong';
+  const res = [['Student', 'Student ID', 'Status', 'Score', 'Total', 'Percent', 'Integrity risk', 'Flags', 'Professor review', 'Times left exam', 'Seconds away', 'Work photos', 'Receipt', ...Q.map((_, i) => 'Q' + (i + 1))]];
+  const ans = [['Student', 'Student ID', 'Q', 'Their numbers', 'Their answer', 'Expected', 'Result', 'Seconds']];
+  const flg = [['Student', 'Student ID', 'Risk', 'Check', 'Weight', 'Detail']];
+  const log = [['Student', 'Student ID', 'Time', 'Event', 'Question']];
+  atts.forEach(a => {
+    res.push([a.name, a.sid, a.status, a.score, a.of, a.pct, a.risk, a.flags.filter(f => f.w > 0).map(f => f.txt).join(' | '), a.review, a.leaves, a.away, a.workReq.length ? a.work.length + '/' + a.workReq.length : '', a.receipt, ...a.rows.map(mark)]);
+    a.rows.forEach((r, i) => { if (r.ok !== -1) ans.push([a.name, a.sid, i + 1, varTxt(r.vars), r.got, r.exp, mark(r), Math.round(r.ms / 100) / 10]); });
+    a.flags.forEach(f => flg.push([a.name, a.sid, a.risk, f.k, f.w, f.txt]));
+    a.ev.forEach(e => log.push([a.name, a.sid, new Date(e.t).toLocaleString(), evn(e).replace(/ \(Q\d+\)$/, ''), e.qi != null ? e.qi + 1 : '']));
+  });
+  const item = [['Q#', 'Question', 'Correct answer', '% correct', 'Avg seconds', 'Time limit']];
+  qstat.forEach(q => item.push([q.n, q.q, q.key, q.pct == null ? '' : Math.round(q.pct * 100) / 100, q.avg == null ? '' : Math.round(q.avg / 100) / 10, q.t]));
+  [['Results', res], ['Answers', ans], ['Flags', flg], ['Item analysis', item], ['Activity log', log]].forEach(([n, d]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(d), n));
+  XLSX.writeFile(wb, (cfg.title || 'exam').replace(/[^\w\- ]/g, '') + ' results.xlsx');
+}
+profInit();
+</script></body></html>
