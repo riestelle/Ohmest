@@ -1,0 +1,510 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>UEG / ProctorQuiz - Live Exam</title>
+<link href="stitch.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+
+
+</head>
+<body class="min-h-screen flex flex-col bg-[#FBF7F6] text-[#1F1717]">
+<!-- SHARED EXAM LAYOUT FRAME -->
+<div class="w-full flex-1 flex flex-col justify-between">
+<!-- Top Area Wrapper: Header, Banner, Timer -->
+<div class="w-full flex-shrink-0">
+<!-- Slim top bar: UEG (left), Exam title (center), Question 7 of 24 (right) -->
+<header class="w-full bg-white border-b border-[#E6D9D7] px-8 h-14 flex items-center justify-between">
+<div class="flex items-center gap-2"><div class="w-7 h-7 rounded bg-[#B5121B] text-white flex items-center justify-center font-bold text-sm tracking-tight">P</div><span class="font-bold text-base tracking-tight text-[#1F1717]">ProctorQuiz</span></div>
+<div class="text-center font-semibold text-sm text-[#1F1717] tracking-tight">
+          Physics 101 - Midterm
+        </div>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-[#1F1717] border border-[#E6D9D7]" id="progress-badge">
+            Question 1 of 2
+          </span>
+</div>
+</header>
+<!-- BANNER ROW (announcements/warnings) -->
+<div class="w-full px-8 pt-4 pb-0 hidden" id="banner-container">
+<div class="max-w-[900px] mx-auto bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] px-4 py-3 rounded-lg flex items-center gap-3" id="banner-content">
+<svg class="w-5 h-5 flex-shrink-0 text-[#B45309]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-sm font-medium" id="banner-text">
+            You left the exam screen. This was recorded (1 of 3). Leaving 3 times locks the exam.
+          </span>
+</div>
+</div>
+<!-- TIMER PROGRESS BAR & LARGE COUNTDOWN (hidden on terminal states 5 and 6) -->
+<div class="w-full px-8 pt-4 pb-2" id="timer-section">
+<div class="max-w-[900px] mx-auto flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<svg class="w-4 h-4 text-[#6F6262]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="9"></circle>
+<polyline points="12 6 12 12 16 14"></polyline>
+</svg>
+<span class="text-xs font-semibold text-[#6F6262] uppercase tracking-wider">Per-question timer</span>
+</div>
+<div class="font-mono text-2xl font-bold text-[#1F1717] tracking-tight" id="countdown-display">24s</div>
+</div>
+<!-- Progress track -->
+<div class="max-w-[900px] mx-auto w-full h-2.5 bg-[#E6D9D7]/50 rounded-full overflow-hidden">
+<div class="h-full bg-[#B5121B] rounded-full transition-all duration-300" id="timer-bar" style="width: 53%;"></div>
+</div>
+</div>
+</div>
+<!-- MAIN EXAM CONTENT WRAPPER: Flex-grows, centers vertically and horizontally in space -->
+<main class="w-full max-w-[1440px] mx-auto px-8 py-6 flex-1 flex flex-col justify-center items-center">
+<!-- ============================================== -->
+<!-- STATE 1: Standard Question (Default) -->
+<!-- ============================================== -->
+<section class="exam-state w-full active" id="state-1">
+<div class="max-w-[900px] w-full mx-auto bg-white border border-[#E6D9D7] rounded-xl p-8">
+<!-- Question Header & Tag -->
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold uppercase tracking-wider text-[#6F6262] bg-[#FBF7F6] px-2.5 py-1 rounded border border-[#E6D9D7]">
+              Classical Mechanics · 4 Points
+            </span>
+<span class="text-xs text-[#6F6262]">Single Choice</span>
+</div>
+<!-- Question Prompt -->
+<h2 class="text-xl font-semibold text-[#1F1717] leading-relaxed mb-8">
+            A 2 kg block slides down a frictionless incline of 30°. What is its acceleration?
+          </h2>
+<!-- 2x2 Answer Tiles Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+<!-- Option A -->
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's1')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                A
+              </span>
+<div class="text-base font-semibold text-[#1F1717]">4.9 m/s²</div>
+</button>
+<!-- Option B -->
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's1')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                B
+              </span>
+<div class="text-base font-semibold text-[#1F1717]">9.8 m/s²</div>
+</button>
+<!-- Option C -->
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's1')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                C
+              </span>
+<div class="text-base font-semibold text-[#1F1717]">8.5 m/s²</div>
+</button>
+<!-- Option D -->
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's1')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                D
+              </span>
+<div class="text-base font-semibold text-[#1F1717]">2.5 m/s²</div>
+</button>
+</div>
+<!-- Footer Actions inside Card -->
+<div class="flex items-center justify-between pt-6 border-t border-[#E6D9D7]">
+<span class="text-xs text-[#6F6262] flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5 text-[#6F6262]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+              Irreversible progression: cannot return once you continue
+            </span>
+<button class="px-6 py-2.5 rounded-lg bg-neutral-300 text-neutral-500 font-semibold text-sm cursor-not-allowed transition-all duration-200 flex items-center gap-2" disabled="" id="lock-btn-s1" onclick="nextQuestion()">
+<span>Next</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- Auxiliary buttons below card -->
+<div class="max-w-[900px] w-full mx-auto mt-4 flex items-center justify-between text-xs text-[#6F6262]">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-white hover:text-[#1F1717] border border-transparent hover:border-[#E6D9D7] transition-all" type="button">
+<svg class="w-4 h-4 text-[#6F6262]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<rect height="20" rx="2" width="16" x="4" y="2"></rect>
+<line x1="8" x2="16" y1="6" y2="6"></line>
+<line x1="16" x2="16" y1="14" y2="18"></line>
+<path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"></path>
+</svg>
+            Calculator &amp; formulas
+          </button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-white hover:text-[#1F1717] border border-transparent hover:border-[#E6D9D7] transition-all" type="button">
+<svg class="w-4 h-4 text-[#6F6262]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+            Report unclear question
+          </button>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- STATE 2: Image Question (Two Columns) -->
+<!-- ============================================== -->
+<section class="exam-state w-full" id="state-2">
+<div class="max-w-[900px] w-full mx-auto bg-white border border-[#E6D9D7] rounded-xl p-8">
+<!-- Question Header & Tag -->
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold uppercase tracking-wider text-[#6F6262] bg-[#FBF7F6] px-2.5 py-1 rounded border border-[#E6D9D7]">
+              Classical Mechanics · Diagram Analysis
+            </span>
+<span class="text-xs text-[#6F6262]">Question 2 of 2</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+<!-- Left Column: Question text & Diagram Placeholder Box -->
+<div class="flex flex-col">
+<h2 class="text-lg font-semibold text-[#1F1717] leading-relaxed mb-4">
+                Consider the free-body diagram below for the 2 kg mass on an incline of angle θ = 30°. Which vector represents the normal force component?
+              </h2>
+<!-- Diagram Placeholder Box with light geometric lines -->
+<div class="w-full bg-[#FBF7F6] border border-[#E6D9D7] rounded-lg p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
+<!-- Physics vector SVG illustration -->
+<svg class="w-full h-44 text-[#6F6262]" fill="none" viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+<!-- Ground line -->
+<line stroke="#E6D9D7" stroke-width="2" x1="20" x2="300" y1="150" y2="150"></line>
+<!-- Incline slope -->
+<polygon fill="#FFF5F5" points="40,150 280,150 280,30" stroke="#B5121B" stroke-width="2"></polygon>
+<!-- Angle theta -->
+<path d="M 90 150 A 50 50 0 0 0 84 130" stroke="#B5121B" stroke-dasharray="2 2" stroke-width="1.5"></path>
+<text fill="#B5121B" font-family="Inter" font-size="12" font-weight="600" x="96" y="142">θ = 30°</text>
+<!-- Block on incline -->
+<g transform="translate(170, 75) rotate(-26.5)">
+<rect fill="#FFFFFF" height="36" rx="3" stroke="#1F1717" stroke-width="2" width="44" x="-22" y="-18"></rect>
+<circle cx="0" cy="0" fill="#B5121B" r="3"></circle>
+<text fill="#1F1717" font-family="Inter" font-size="11" font-weight="bold" x="-12" y="5">2 kg</text>
+<!-- Normal Force Vector (Up) -->
+<line marker-end="url(#arrow-red)" stroke="#B5121B" stroke-width="2.5" x1="0" x2="0" y1="0" y2="-45"></line>
+<text fill="#B5121B" font-family="Inter" font-size="12" font-weight="bold" x="5" y="-35">N (Vector 1)</text>
+<!-- Downhill acceleration vector -->
+<line stroke="#1F1717" stroke-dasharray="3 3" stroke-width="2" x1="0" x2="-45" y1="0" y2="0"></line>
+<text fill="#6F6262" font-family="Inter" font-size="10" x="-48" y="-6">Vector 2</text>
+</g>
+<!-- Gravity Vector (Straight Down) -->
+<line marker-end="url(#arrow-gray)" stroke="#6F6262" stroke-width="2" x1="170" x2="170" y1="75" y2="140"></line>
+<text fill="#6F6262" font-family="Inter" font-size="11" x="176" y="120">mg</text>
+<!-- Arrow markers -->
+<defs>
+<marker id="arrow-red" markerHeight="6" markerWidth="6" orient="auto-start-reverse" refX="6" refY="5" viewBox="0 0 10 10">
+<path d="M 0 1 L 8 5 L 0 9 z" fill="#B5121B"></path>
+</marker>
+<marker id="arrow-gray" markerHeight="6" markerWidth="6" orient="auto-start-reverse" refX="6" refY="5" viewBox="0 0 10 10">
+<path d="M 0 1 L 8 5 L 0 9 z" fill="#6F6262"></path>
+</marker>
+</defs>
+</svg>
+<p class="text-xs text-[#6F6262] mt-2 font-mono">
+                  Fig 7.1: Coordinate frame aligned perpendicular to inclined plane
+                </p>
+</div>
+</div>
+<!-- Right Column: Four Answer Tiles Stacked Vertically & Lock in Answer -->
+<div class="flex flex-col gap-3">
+<span class="text-xs font-semibold text-[#6F6262] uppercase tracking-wider mb-1">Select one answer:</span>
+<button class="answer-tile group text-left p-4 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-3" onclick="selectAnswer(this, 's2')" type="button">
+<span class="tile-indicator flex-shrink-0 w-7 h-7 rounded-full border border-[#E6D9D7] font-semibold text-xs flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                  A
+                </span>
+<span class="text-sm font-semibold text-[#1F1717]">Vector 1 (Perpendicular, directed away from surface)</span>
+</button>
+<button class="answer-tile group text-left p-4 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-3" onclick="selectAnswer(this, 's2')" type="button">
+<span class="tile-indicator flex-shrink-0 w-7 h-7 rounded-full border border-[#E6D9D7] font-semibold text-xs flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                  B
+                </span>
+<span class="text-sm font-semibold text-[#1F1717]">Vector 2 (Parallel, pointing downhill)</span>
+</button>
+<button class="answer-tile group text-left p-4 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-3" onclick="selectAnswer(this, 's2')" type="button">
+<span class="tile-indicator flex-shrink-0 w-7 h-7 rounded-full border border-[#E6D9D7] font-semibold text-xs flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                  C
+                </span>
+<span class="text-sm font-semibold text-[#1F1717]">Vector mg (Strictly vertical toward earth center)</span>
+</button>
+<button class="answer-tile group text-left p-4 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-3" onclick="selectAnswer(this, 's2')" type="button">
+<span class="tile-indicator flex-shrink-0 w-7 h-7 rounded-full border border-[#E6D9D7] font-semibold text-xs flex items-center justify-center text-[#6F6262] group-hover:border-[#B5121B]/50 transition-colors">
+                  D
+                </span>
+<span class="text-sm font-semibold text-[#1F1717]">Vector zero (Cancels out across all inertial axes)</span>
+</button>
+<div class="mt-4 pt-4 border-t border-[#E6D9D7] flex flex-col gap-2">
+<button class="w-full py-3 rounded-lg bg-neutral-300 text-neutral-500 font-semibold text-sm cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2" disabled="" id="lock-btn-s2" onclick="nextQuestion()">
+<span>Next</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<p class="text-[11px] text-center text-[#6F6262]">
+                  Your answer is recorded permanently when you continue.
+                </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Auxiliary buttons below card -->
+<div class="max-w-[900px] w-full mx-auto mt-4 flex items-center justify-between text-xs text-[#6F6262]">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-white hover:text-[#1F1717] border border-transparent hover:border-[#E6D9D7] transition-all" type="button">
+<svg class="w-4 h-4 text-[#6F6262]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<rect height="20" rx="2" width="16" x="4" y="2"></rect>
+<line x1="8" x2="16" y1="6" y2="6"></line>
+<line x1="16" x2="16" y1="14" y2="18"></line>
+<path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"></path>
+</svg>
+            Calculator &amp; formulas
+          </button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-white hover:text-[#1F1717] border border-transparent hover:border-[#E6D9D7] transition-all" type="button">
+<svg class="w-4 h-4 text-[#6F6262]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+            Report unclear question
+          </button>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- STATE 3: Warning (State 1 + Amber Banner) — HIDDEN FOR NOW: not reachable until backend triggers it via showState('state-3') -->
+<!-- ============================================== -->
+<section class="exam-state w-full" id="state-3">
+<div class="max-w-[900px] w-full mx-auto bg-white border border-[#E6D9D7] rounded-xl p-8">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold uppercase tracking-wider text-[#6F6262] bg-[#FBF7F6] px-2.5 py-1 rounded border border-[#E6D9D7]">
+              Classical Mechanics · 4 Points
+            </span>
+<span class="inline-flex items-center gap-1 text-xs font-semibold text-[#B45309]">
+<span class="w-2 h-2 rounded-full bg-[#B45309] animate-pulse"></span>
+              Proctor flag active
+            </span>
+</div>
+<h2 class="text-xl font-semibold text-[#1F1717] leading-relaxed mb-8">
+            A 2 kg block slides down a frictionless incline of 30°. What is its acceleration?
+          </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's3')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">A</span>
+<div class="text-base font-semibold text-[#1F1717]">4.9 m/s²</div>
+</button>
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's3')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">B</span>
+<div class="text-base font-semibold text-[#1F1717]">9.8 m/s²</div>
+</button>
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's3')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">C</span>
+<div class="text-base font-semibold text-[#1F1717]">8.5 m/s²</div>
+</button>
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's3')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">D</span>
+<div class="text-base font-semibold text-[#1F1717]">2.5 m/s²</div>
+</button>
+</div>
+<div class="flex items-center justify-between pt-6 border-t border-[#E6D9D7]">
+<span class="text-xs text-[#6F6262]">Focus lost logged: Incident #1</span>
+<button class="px-6 py-2.5 rounded-lg bg-neutral-300 text-neutral-500 font-semibold text-sm cursor-not-allowed transition-all duration-200" disabled="" id="lock-btn-s3" onclick="showState('state-5')">
+              Lock in answer
+            </button>
+</div>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- STATE 4: Low Time — HIDDEN FOR NOW: not reachable until backend triggers it via showState('state-4') -->
+<!-- ============================================== -->
+<section class="exam-state w-full" id="state-4">
+<div class="max-w-[900px] w-full mx-auto bg-white border border-[#E6D9D7] rounded-xl p-8">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-semibold uppercase tracking-wider text-[#6F6262] bg-[#FBF7F6] px-2.5 py-1 rounded border border-[#E6D9D7]">
+              Classical Mechanics · 4 Points
+            </span>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+              Auto-advances when timer hits 0s
+            </span>
+</div>
+<h2 class="text-xl font-semibold text-[#1F1717] leading-relaxed mb-8">
+            A 2 kg block slides down a frictionless incline of 30°. What is its acceleration?
+          </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's4')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">A</span>
+<div class="text-base font-semibold text-[#1F1717]">4.9 m/s²</div>
+</button>
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's4')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">B</span>
+<div class="text-base font-semibold text-[#1F1717]">9.8 m/s²</div>
+</button>
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's4')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">C</span>
+<div class="text-base font-semibold text-[#1F1717]">8.5 m/s²</div>
+</button>
+<button class="answer-tile group text-left p-5 rounded-lg border border-[#E6D9D7] bg-white hover:border-[#B5121B]/40 hover:bg-[#FBF7F6] transition-all flex items-center gap-4" onclick="selectAnswer(this, 's4')" type="button">
+<span class="tile-indicator flex-shrink-0 w-8 h-8 rounded-full border border-[#E6D9D7] font-semibold text-sm flex items-center justify-center text-[#6F6262]">D</span>
+<div class="text-base font-semibold text-[#1F1717]">2.5 m/s²</div>
+</button>
+</div>
+<div class="flex items-center justify-between pt-6 border-t border-[#E6D9D7]">
+<span class="text-xs font-semibold text-[#B45309]">Hurry: 5 seconds remaining</span>
+<button class="px-6 py-2.5 rounded-lg bg-neutral-300 text-neutral-500 font-semibold text-sm cursor-not-allowed transition-all duration-200" disabled="" id="lock-btn-s4" onclick="showState('state-5')">
+              Lock in answer
+            </button>
+</div>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- STATE 5: Submitted -->
+<!-- ============================================== -->
+<section class="exam-state w-full py-4" id="state-5">
+<div class="max-w-[560px] w-full mx-auto bg-white border border-[#E6D9D7] rounded-xl p-8 text-center">
+<!-- Green Checkmark Icon -->
+<div class="w-16 h-16 rounded-full bg-[#1A7F4B]/10 border border-[#1A7F4B]/20 text-[#1A7F4B] mx-auto flex items-center justify-center mb-5">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+<polyline points="20 6 9 17 4 12"></polyline>
+</svg>
+</div>
+<h1 class="text-2xl font-bold text-[#1F1717] tracking-tight mb-2">
+            Exam submitted
+          </h1>
+<p class="text-sm text-[#6F6262] mb-6">
+            Your final test sitting for <strong>Physics 101 - Midterm</strong> has been logged to the university evaluation ledger.
+          </p>
+<!-- Result & Receipt Details Card -->
+<div class="bg-[#FBF7F6] border border-[#E6D9D7] rounded-lg p-5 mb-8 text-left space-y-3">
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-[#6F6262]">Provisional Score</span>
+<span class="text-lg font-bold text-[#1A7F4B] font-mono">18 / 24</span>
+</div>
+<div class="h-px bg-[#E6D9D7]/70"></div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-[#6F6262]">Submission Receipt Code</span>
+<span class="text-xs font-mono font-semibold text-[#1F1717] bg-white px-2 py-0.5 rounded border border-[#E6D9D7]">
+                A1B2C3D4-9XYZ
+              </span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-[#6F6262]">Integrity Verification</span>
+<span class="text-xs font-medium text-[#1A7F4B] flex items-center gap-1">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+                Cleared (Zero lockouts)
+              </span>
+</div>
+</div>
+<!-- Back to Dashboard CTA -->
+<button class="w-full py-3 rounded-lg bg-[#B5121B] hover:bg-[#8F0E15] text-white font-semibold text-sm transition-colors" onclick="window.location.href='prof-dashboard.html'" type="button">
+            Back to dashboard
+          </button>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- STATE 6: Locked — HIDDEN FOR NOW: not reachable until backend triggers it via showState('state-6') -->
+<!-- ============================================== -->
+<section class="exam-state w-full py-4" id="state-6">
+<div class="max-w-[560px] w-full mx-auto bg-white border border-[#E6D9D7] rounded-xl p-8 text-center">
+<!-- Amber Warning Icon -->
+<div class="w-16 h-16 rounded-full bg-[#FEF3C7] border border-[#FDE68A] text-[#B45309] mx-auto flex items-center justify-center mb-5">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<h1 class="text-2xl font-bold text-[#1F1717] tracking-tight mb-2">
+            Exam locked
+          </h1>
+<p class="text-sm text-[#6F6262] leading-relaxed mb-6">
+            You left the exam screen too many times. Your sitting has been suspended per examination regulations, and all answers submitted up to Question 7 were automatically saved.
+          </p>
+<!-- Explanation & Contact professor note -->
+<div class="bg-[#FBF7F6] border border-[#E6D9D7] rounded-lg p-5 mb-8 text-left space-y-3">
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-[#6F6262]">Violation Type</span>
+<span class="text-xs font-semibold text-[#B45309]">Window defocus limit exceeded (3/3)</span>
+</div>
+<div class="h-px bg-[#E6D9D7]/70"></div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-[#6F6262]">Saved Session Receipt</span>
+<span class="text-xs font-mono font-semibold text-[#1F1717] bg-white px-2 py-0.5 rounded border border-[#E6D9D7]">
+                A1B2C3D4-9XYZ
+              </span>
+</div>
+<div class="h-px bg-[#E6D9D7]/70"></div>
+<p class="text-xs text-[#6F6262] leading-normal">
+<strong>Next steps:</strong> Please contact your course professor or academic supervisor immediately with your receipt code to petition for sitting review or session reset.
+            </p>
+</div>
+<!-- Back to Dashboard CTA (identical to State 5) -->
+<button class="w-full py-3 rounded-lg bg-[#B5121B] hover:bg-[#8F0E15] text-white font-semibold text-sm transition-colors" onclick="window.location.href='prof-dashboard.html'" type="button">
+            Back to dashboard
+          </button>
+</div>
+</section>
+</main>
+<!-- FOOTER: Institutional subtle copyright footer pinned strictly at bottom -->
+<footer class="w-full bg-white border-t border-[#E6D9D7] py-3.5 px-8 flex items-center justify-between text-xs text-[#6F6262] flex-shrink-0 mt-auto"><div>© 2026 ProctorQuiz · Honor Code · Academic Regulations</div><div class="flex items-center gap-6"><span class="hover:text-[#1F1717] cursor-pointer">Academic Regulations</span><span class="hover:text-[#1F1717] cursor-pointer">Honor Code</span></div></footer>
+</div>
+<!-- INTERACTIVE SWITCHING LOGIC (Lightweight vanilla JS) -->
+<script>
+    // Sequential flow: question -> image question -> submitted.
+    // States 3 (warning), 4 (low time) and 6 (locked) exist in the markup but are not
+    // reachable yet; backend can call showState('state-3' | 'state-4' | 'state-6').
+    const FLOW = ['state-1', 'state-2', 'state-5'];
+    const QUESTION_STATES = ['state-1', 'state-2', 'state-3', 'state-4'];
+    let step = 0;
+
+    function showState(stateId) {
+      document.querySelectorAll('.exam-state').forEach(el => el.classList.remove('active'));
+      const target = document.getElementById(stateId);
+      if (target) target.classList.add('active');
+
+      const bannerContainer = document.getElementById('banner-container');
+      const timerSection = document.getElementById('timer-section');
+      const countdown = document.getElementById('countdown-display');
+      const timerBar = document.getElementById('timer-bar');
+      const badge = document.getElementById('progress-badge');
+
+      bannerContainer.classList.toggle('hidden', stateId !== 'state-3');
+
+      if (stateId === 'state-5' || stateId === 'state-6') {
+        timerSection.classList.add('hidden');
+        if (badge) badge.classList.add('hidden');
+      } else {
+        timerSection.classList.remove('hidden');
+        if (badge) badge.classList.remove('hidden');
+        if (stateId === 'state-4') {
+          countdown.textContent = '5s';
+          countdown.className = 'font-mono text-2xl font-bold text-[#B45309] tracking-tight animate-pulse';
+          timerBar.style.width = '11%';
+          timerBar.className = 'h-full bg-[#B45309] rounded-full transition-all duration-300';
+        } else {
+          countdown.textContent = '24s';
+          countdown.className = 'font-mono text-2xl font-bold text-[#1F1717] tracking-tight';
+          timerBar.style.width = '53%';
+          timerBar.className = 'h-full bg-[#B5121B] rounded-full transition-all duration-300';
+        }
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function nextQuestion() {
+      if (step < FLOW.length - 1) {
+        step += 1;
+        const id = FLOW[step];
+        if (badge_text(id)) document.getElementById('progress-badge').textContent = badge_text(id);
+        showState(id);
+      }
+    }
+
+    function badge_text(stateId) {
+      if (stateId === 'state-1') return 'Question 1 of 2';
+      if (stateId === 'state-2') return 'Question 2 of 2';
+      return '';
+    }
+
+    function selectAnswer(button, prefix) {
+      const container = button.closest('section');
+      container.querySelectorAll('.answer-tile').forEach(tile => tile.classList.remove('selected'));
+      button.classList.add('selected');
+
+      const lockBtn = document.getElementById('lock-btn-' + prefix);
+      if (lockBtn) {
+        lockBtn.disabled = false;
+        lockBtn.classList.remove('bg-neutral-300', 'text-neutral-500', 'cursor-not-allowed');
+        lockBtn.classList.add('bg-[#B5121B]', 'hover:bg-[#8F0E15]', 'text-white', 'cursor-pointer');
+      }
+    }
+  </script>
+
+
+</body></html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>ProctorQuiz - Register - Professor</title><meta content="web_blank" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;min-height:100%;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="stitch.css" rel="stylesheet"></head><body class="min-h-screen flex flex-col justify-between bg-[#FBF7F6] font-sans antialiased text-on-surface m-0 p-0 selection:bg-primary-container selection:text-white"><header class="w-full bg-white h-14 py-3.5 px-8 border-b border-[#E6D9D7] flex items-center justify-between flex-shrink-0 z-20">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded-md bg-[#B5121B] flex items-center justify-center text-white shadow-sm">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+</div>
+<span class="text-[#B5121B] text-xl font-bold tracking-tight">ProctorQuiz</span>
+</div>
+<div class="hidden sm:flex items-center gap-2 text-xs font-medium text-secondary">
+<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+    System Operational
+  </div>
+</header><main class="w-full flex-1 flex flex-col min-h-0"><div class="flex-1 flex flex-col lg:flex-row w-full min-h-full">
+<!-- Left Red Panel -->
+<div class="w-full lg:w-1/2 bg-gradient-to-br from-[#B5121B] via-[#a31119] to-[#800b12] text-white p-8 lg:p-14 xl:p-16 flex flex-col relative overflow-hidden flex-shrink-0 justify-center">
+<!-- Subtle Geometric / Academic Motif Overlays -->
+<div class="absolute inset-0 pointer-events-none opacity-[0.06]" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 28px 28px;"></div>
+<div class="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/10 pointer-events-none"></div>
+<div class="absolute -top-12 -right-12 w-72 h-72 rounded-full border border-white/15 pointer-events-none"></div>
+<div class="absolute -bottom-36 -left-36 w-[480px] h-[480px] rounded-full border border-white/10 pointer-events-none"></div>
+<div class="absolute top-1/2 right-12 w-64 h-64 rounded-full bg-white/[0.03] blur-3xl pointer-events-none"></div>
+<!-- Content: Header & Main Intro -->
+<div class="relative z-10"><div class="max-w-xl"><h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 text-white leading-[1.1]" style="font-size: clamp(2.75rem, 5vw, 4.25rem);">Welcome to<br/>ProctorQuiz</h1><p class="text-lg lg:text-xl text-white/90 font-normal leading-relaxed max-w-md">Take your exams online. Timed, fair, and focused.</p></div></div>
+<!-- Content: Elevated Feature Highlights utilizing vertical space -->
+<!-- Content: Trust / Status Stamp Footer in Left Panel -->
+</div>
+<!-- Right Form Container Panel -->
+<div class="w-full lg:w-1/2 bg-[#FBF7F6] flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
+<div class="w-full max-w-[480px] bg-white rounded-xl shadow-md p-6 sm:p-8 border border-[#E6D9D7]/50 my-auto">
+<!-- Segmented Tab Switcher -->
+<div class="flex items-center p-1 rounded-lg bg-surface-container mb-8">
+<button class="flex-1 py-2.5 text-center font-label-md text-label-md rounded-md transition-all duration-200 text-on-surface-variant hover:text-on-surface" id="tab-login" onclick="switchAuthTab('login')">
+          Log in
+        </button>
+<button class="flex-1 py-2.5 text-center font-label-md text-label-md rounded-md transition-all duration-200 bg-surface-container-lowest text-primary shadow-sm" id="tab-register" onclick="switchAuthTab('register')">
+          Register
+        </button>
+</div>
+<!-- VIEW 1: Login Form -->
+<div class="hidden flex-col" id="view-login">
+<div class="mb-6">
+<h2 class="text-2xl font-bold text-on-surface tracking-tight">Sign in</h2>
+<p class="text-sm text-on-surface-variant mt-1">Please enter your matriculation credentials to access scheduled exams.</p>
+</div>
+<form class="space-y-4" onsubmit="event.preventDefault();">
+<div class="flex flex-col gap-2">
+<label class="font-label-md text-label-md text-on-surface flex items-center justify-between" for="login-id">
+<span>Student Number or Email</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Required</span>
+</label>
+<div class="relative">
+<input class="w-full h-11 px-3.5 bg-surface-container-lowest rounded-lg font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-container border border-surface-variant/30" id="login-id" placeholder="e.g. pq-2026-8842 or student@proctorquiz.edu" type="text" value="pq-2026-8842"/>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface" for="login-pass">Password</label>
+<a class="font-body-sm text-body-sm text-secondary hover:text-primary transition-colors" href="#reset" onclick="alert('Password reset instructions sent to registered institutional email.')">
+                Forgot password?
+              </a>
+</div>
+<div class="relative flex items-center">
+<input class="w-full h-11 pl-3.5 pr-11 bg-surface-container-low text-primary rounded-lg font-body-md text-body-md shadow-sm focus:outline-none ring-2 ring-primary-container border border-primary/20" id="login-pass" type="password" value="student_secure_pass"/>
+<button aria-label="Toggle password visibility" class="absolute right-3 text-secondary hover:text-on-surface p-1 transition-colors flex items-center justify-center" onclick="togglePasswordVisibility('login-pass', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+<div class="flex items-start gap-1.5 p-2 rounded-md bg-error-container text-on-error-container mt-1">
+<span class="material-symbols-outlined text-[18px] flex-shrink-0 mt-0.5">error</span>
+<span class="font-body-sm-medium text-body-sm-medium leading-snug">
+                Invalid credentials. Please verify your student ID or password.
+              </span>
+</div>
+</div>
+<div class="pt-2">
+<button class="w-full h-11 bg-primary-container hover:bg-primary text-on-primary font-headline-sm text-label-md rounded-[10px] shadow-sm transition-all duration-150 flex items-center justify-center gap-2 active:scale-[0.99]" type="submit">
+<span>Log in</span>
+<span class="material-symbols-outlined text-[18px]">login</span>
+</button>
+</div>
+</form>
+<div class="mt-6 pt-5 text-center bg-surface-container-low rounded-lg p-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Don't have an exam credential? </span>
+<button class="font-label-md text-label-md text-primary-container hover:underline ml-1 font-semibold" onclick="switchAuthTab('register')">
+            Switch to Register
+          </button>
+</div>
+</div>
+<!-- VIEW 2: Register Form -->
+<div class="flex flex-col" id="view-register"><div class="mb-5">
+<h2 class="text-2xl font-bold text-on-surface tracking-tight">Create account</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Sign up for faculty and exam coordinator access.</p>
+</div>
+<form class="space-y-3.5" onsubmit="event.preventDefault();">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface" for="reg-name">Full Name</label>
+<input class="w-full h-10 px-3.5 bg-surface-container-lowest rounded-lg font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-container border border-surface-variant/30" id="reg-name" placeholder="Dr. Jane Smith" type="text"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface" for="reg-email">Email</label>
+<input class="w-full h-10 px-3.5 bg-surface-container-lowest rounded-lg font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-container border border-surface-variant/30" id="reg-email" placeholder="name@university.edu" type="email"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface" for="reg-pass">Password</label>
+<div class="relative flex items-center">
+<input class="w-full h-10 pl-3.5 pr-11 bg-surface-container-lowest rounded-lg font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-container border border-surface-variant/30" id="reg-pass" placeholder="Min 8 characters with numbers" type="password"/>
+<button aria-label="Toggle password visibility" class="absolute right-3 text-secondary hover:text-on-surface p-1" onclick="togglePasswordVisibility('reg-pass', this)" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface" for="reg-confirm">Confirm Password</label>
+<div class="relative flex items-center">
+<input class="w-full h-10 pl-3.5 pr-11 bg-surface-container-lowest rounded-lg font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-container border border-surface-variant/30" id="reg-confirm" placeholder="Re-type password" type="password"/>
+<button aria-label="Toggle password visibility" class="absolute right-3 text-secondary hover:text-on-surface p-1" onclick="togglePasswordVisibility('reg-confirm', this)" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface" for="reg-code">Professor access code</label>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Required</span>
+</div>
+<input class="w-full h-10 px-3.5 bg-surface-container-lowest rounded-lg font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-container border border-surface-variant/30" id="reg-code" placeholder="e.g. PROF-DEPT-8821" type="text"/>
+<span class="font-body-sm text-body-sm text-secondary text-xs">Given to you by your department.</span>
+</div>
+<div class="pt-2">
+<button class="w-full h-11 bg-primary-container hover:bg-primary text-on-primary font-headline-sm text-label-md rounded-[10px] shadow-sm transition-all duration-150 flex items-center justify-center gap-2 active:scale-[0.99]" type="submit">
+<span>Create account</span>
+<span class="material-symbols-outlined text-[18px]">how_to_reg</span>
+</button>
+</div>
+</form>
+<div class="mt-4 pt-3 text-center bg-surface-container-low rounded-lg p-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Already have an account? </span>
+<button class="font-label-md text-label-md text-primary-container hover:underline ml-1 font-semibold" onclick="switchAuthTab('login')">
+Switch to Log in
+</button>
+</div></div>
+</div>
+</div>
+</div></main><footer class="w-full py-3 px-8 text-center border-t border-[#E6D9D7] bg-white text-xs text-[#6F6262] flex-shrink-0">
+  © 2026 ProctorQuiz · Honor Code · Academic Regulations
+</footer>
+<script>
+  function switchAuthTab(tab) {
+    const loginTab = document.getElementById('tab-login');
+    const registerTab = document.getElementById('tab-register');
+    const loginView = document.getElementById('view-login');
+    const registerView = document.getElementById('view-register');
+
+    if (tab === 'login') {
+      loginTab.className = 'flex-1 py-2.5 text-center font-label-md text-label-md rounded-md transition-all duration-200 bg-surface-container-lowest text-primary shadow-sm';
+      registerTab.className = 'flex-1 py-2.5 text-center font-label-md text-label-md rounded-md transition-all duration-200 text-on-surface-variant hover:text-on-surface';
+      loginView.classList.remove('hidden');
+      loginView.classList.add('flex');
+      registerView.classList.remove('flex');
+      registerView.classList.add('hidden');
+    } else {
+      registerTab.className = 'flex-1 py-2.5 text-center font-label-md text-label-md rounded-md transition-all duration-200 bg-surface-container-lowest text-primary shadow-sm';
+      loginTab.className = 'flex-1 py-2.5 text-center font-label-md text-label-md rounded-md transition-all duration-200 text-on-surface-variant hover:text-on-surface';
+      registerView.classList.remove('hidden');
+      registerView.classList.add('flex');
+      loginView.classList.remove('flex');
+      loginView.classList.add('hidden');
+    }
+  }
+
+  function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.textContent = 'visibility';
+    } else {
+      input.type = 'password';
+      icon.textContent = 'visibility_off';
+    }
+  }
+</script>
+</body></html>

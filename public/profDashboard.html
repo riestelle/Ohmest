@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>UEG / ProctorQuiz - Academic Portal</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="stitch.css" rel="stylesheet">
+<style>
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-smoothing: antialiased; }
+</style>
+</head>
+<body class="bg-surface font-body-md text-body-md text-on-surface antialiased min-h-screen flex flex-col">
+
+<!-- Sticky Header -->
+<header class="fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-surface-variant">
+  <div class="h-16 max-w-7xl mx-auto px-margin flex items-center justify-between">
+    <div class="flex items-center gap-space-lg">
+      <a class="flex items-center gap-2 transition-opacity hover:opacity-90" href="#">
+        <div class="w-8 h-8 rounded bg-primary-container text-on-primary flex items-center justify-center font-bold text-label-md tracking-wider">P</div>
+        <span class="font-bold text-headline-sm text-on-surface tracking-tight">ProctorQuiz</span>
+      </a>
+      <nav class="flex items-center gap-space-lg h-16">
+        <a aria-current="page" class="h-full flex items-center transition-colors px-space-xs text-primary-container border-b-2 border-primary-container font-body-md-medium text-body-md-medium" href="#">Dashboard</a>
+        <a class="h-full flex items-center transition-colors px-space-xs text-on-surface-variant hover:text-on-surface font-body-md text-body-sm cursor-pointer" href="createExam.html">Create Exam</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-space-md">
+      <div class="relative group">
+        <button aria-expanded="false" aria-label="Professor profile menu" class="flex items-center gap-space-xs p-space-xs rounded-full hover:bg-surface-container-low transition-colors" type="button">
+          <span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm" id="avatarInit">JS</span>
+          <span class="material-symbols-outlined text-on-surface-variant text-label-md group-hover:text-on-surface transition-transform group-hover:rotate-180">expand_more</span>
+        </button>
+        <div class="absolute right-0 top-full mt-space-xs w-60 bg-surface-container-lowest border border-surface-variant rounded-lg shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_20px_25px_-5px_rgba(0,0,0,0.05)] py-space-xs hidden group-hover:block group-focus-within:block z-50">
+          <div class="px-space-md py-space-sm border-b border-surface-variant">
+            <p class="font-label-md text-label-md text-on-surface leading-tight" id="menuName">Dr. Jane Smith</p>
+            <p class="font-label-sm text-label-sm text-on-surface-variant leading-tight" id="menuNo">Faculty of Science</p>
+          </div>
+          <a class="flex items-center gap-space-sm px-space-md py-space-sm text-on-surface hover:bg-surface-container-low hover:text-on-surface transition-colors font-body-sm text-body-sm" data-path="profile" href="#"><span class="material-symbols-outlined text-label-md text-on-surface-variant">person</span>Profile</a>
+          <a class="flex items-center gap-space-sm px-space-md py-space-sm text-on-surface hover:bg-surface-container-low hover:text-on-surface transition-colors font-body-sm text-body-sm" data-path="settings" href="#"><span class="material-symbols-outlined text-label-md text-on-surface-variant">settings</span>Settings</a>
+          <div class="border-t border-surface-variant my-space-xs"></div>
+          <a class="flex items-center gap-space-sm px-space-md py-space-sm text-primary hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors font-body-sm-medium text-body-sm-medium" data-path="login" href="#"><span class="material-symbols-outlined text-label-md text-primary">logout</span>Log out</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-16 flex-1 bg-surface">
+  <div class="max-w-6xl mx-auto w-full py-8 px-6 flex flex-col gap-6">
+
+    <!-- Subheader row -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-2 text-on-surface-variant font-body-md text-body-md border-b border-surface-variant">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-body-md-medium text-body-md-medium text-on-surface">Welcome back, Professor Smith <span class="text-outline-variant mx-1.5">·</span> <span class="text-on-surface-variant font-body-md text-body-md">Faculty of Science</span></span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-tertiary-fixed text-on-tertiary-fixed-variant"><span class="material-symbols-outlined text-[14px] text-tertiary">verified</span>Proctor Verified</span>
+      </div>
+      <div class="px-3 py-1 bg-surface-container-low border border-surface-variant rounded-lg font-label-md text-label-md text-on-surface font-semibold shadow-sm self-start sm:self-auto">Fall Semester 2026</div>
+    </div>
+
+    <!-- Heading & Action row -->
+    <section class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div class="space-y-1">
+        <h1 class="font-display-lg text-display-lg font-bold text-on-surface tracking-tight">My exams</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant">Manage, deploy, and review proctored course assessments</p>
+      </div>
+      <div class="shrink-0">
+        <button class="bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md px-5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2">
+          <span class="material-symbols-outlined text-[20px]">add</span><span>Create exam</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===================== POPULATED STATE ===================== -->
+    <div class="flex flex-col gap-6" id="view-populated">
+
+      <!-- Control row -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-surface-container-lowest p-2.5 rounded-xl border border-surface-variant shadow-sm">
+        <div aria-label="Exam status filters" class="flex items-center gap-2 overflow-x-auto" id="filter-tabs">
+          <button class="filter-btn bg-primary-container text-on-primary px-4 py-2 rounded-lg font-label-md text-label-md transition-colors shadow-sm focus:outline-none" data-filter="all">All (4)</button>
+          <button class="filter-btn bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low px-4 py-2 rounded-lg font-label-md text-label-md transition-colors shadow-sm focus:outline-none" data-filter="open">Open (2)</button>
+          <button class="filter-btn bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low px-4 py-2 rounded-lg font-label-md text-label-md transition-colors shadow-sm focus:outline-none" data-filter="closed">Closed (2)</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 sm:w-60">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+            <input class="w-full pl-9 pr-3 py-2 bg-surface-container-low border border-surface-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:bg-surface-container-lowest transition-colors placeholder:text-on-surface-variant" id="search-input" placeholder="Search exams..." type="text">
+          </div>
+          <select class="px-3 py-2 bg-surface-container-low border border-surface-variant hover:bg-surface-container rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none transition-colors cursor-pointer" id="subject-filter">
+            <option value="all">All subjects</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Physics">Physics</option>
+            <option value="Mathematics">Mathematics</option>
+          </select>
+          <select class="px-3 py-2 bg-surface-container-low border border-surface-variant hover:bg-surface-container rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none transition-colors cursor-pointer">
+            <option>Fall 2026</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Exam cards -->
+      <div class="flex flex-col gap-4" id="cards-stack">
+
+        <!-- Card 1: CS-402 (OPEN) -->
+        <article class="exam-card bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden group" data-category="open" data-subject="Computer Science">
+          <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-tertiary-container"></div>
+          <div class="flex flex-col gap-2 flex-1 pl-2">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold bg-tertiary-fixed text-on-tertiary-fixed-variant"><span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-ping"></span>OPEN</span>
+              <span class="font-label-sm text-label-sm text-primary font-semibold tracking-wider">CS-402</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Computer Science</span>
+            </div>
+            <div>
+              <h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors">Advanced Algorithms &amp; Computational Complexity</h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Department of Computer Science &amp; Engineering</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 font-body-sm text-body-sm text-on-surface-variant">
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">quiz</span>45 Questions</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">timer</span>90 Minutes</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5 text-primary font-medium"><span class="material-symbols-outlined text-label-md text-primary">schedule</span>Deadline: Today, 11:59 PM (Nov 18, 2026)</span>
+            </div>
+            <div class="w-full max-w-md pt-2">
+              <div class="flex items-center justify-between text-body-sm-medium text-on-surface mb-1">
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>78 / 85 Submitted (92%)</span>
+                <span class="text-on-surface-variant font-label-sm text-label-sm">7 pending</span>
+              </div>
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-tertiary-container rounded-full" style="width: 92%;"></div></div>
+            </div>
+          </div>
+          <div class="flex flex-row items-center gap-2 shrink-0 pt-2 lg:pt-0">
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">edit</span><span>Edit</span></button>
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">insights</span><span>Results</span></button>
+            <button class="bg-primary-container hover:bg-primary text-on-primary px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors shadow-sm flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">lock_clock</span><span>Close exam</span></button>
+          </div>
+        </article>
+
+        <!-- Card 2: PHYS-310 (OPEN) -->
+        <article class="exam-card bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden group" data-category="open" data-subject="Physics">
+          <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-tertiary-container"></div>
+          <div class="flex flex-col gap-2 flex-1 pl-2">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold bg-tertiary-fixed text-on-tertiary-fixed-variant"><span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>OPEN</span>
+              <span class="font-label-sm text-label-sm text-primary font-semibold tracking-wider">PHYS-310</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Physics</span>
+            </div>
+            <div>
+              <h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors">Quantum Mechanics &amp; Wave Functions</h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Faculty of Natural Sciences</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 font-body-sm text-body-sm text-on-surface-variant">
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">quiz</span>30 Questions</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">timer</span>60 Minutes</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5 text-on-surface font-medium"><span class="material-symbols-outlined text-label-md text-primary">event</span>Deadline: Tomorrow, 2:00 PM</span>
+            </div>
+            <div class="w-full max-w-md pt-2">
+              <div class="flex items-center justify-between text-body-sm-medium text-on-surface mb-1">
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>42 / 50 Submitted (84%)</span>
+                <span class="text-on-surface-variant font-label-sm text-label-sm">8 pending</span>
+              </div>
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-tertiary-container rounded-full" style="width: 84%;"></div></div>
+            </div>
+          </div>
+          <div class="flex flex-row items-center gap-2 shrink-0 pt-2 lg:pt-0">
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">edit</span><span>Edit</span></button>
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">insights</span><span>Results</span></button>
+            <button class="bg-primary-container hover:bg-primary text-on-primary px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors shadow-sm flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">lock_clock</span><span>Close exam</span></button>
+          </div>
+        </article>
+
+        <!-- Card 3: MATH-204 (CLOSED) -->
+        <article class="exam-card bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden group" data-category="closed" data-subject="Mathematics">
+          <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-outline-variant"></div>
+          <div class="flex flex-col gap-2 flex-1 pl-2">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold bg-surface-container-high text-secondary"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>CLOSED</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant font-semibold tracking-wider">MATH-204</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Mathematics</span>
+            </div>
+            <div>
+              <h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors">Linear Algebra &amp; Numerical Methods</h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">School of Mathematics</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 font-body-sm text-body-sm text-on-surface-variant">
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">quiz</span>50 Questions</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">timer</span>120 Minutes</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5 text-on-surface-variant"><span class="material-symbols-outlined text-label-md text-on-surface-variant">event_available</span>Closed: Nov 15, 2026</span>
+            </div>
+            <div class="w-full max-w-md pt-2">
+              <div class="flex items-center justify-between text-body-sm-medium text-on-surface mb-1">
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-on-surface-variant">verified</span>118 / 120 Submitted (98%)</span>
+                <span class="text-on-surface-variant font-label-sm text-label-sm">Finalized</span>
+              </div>
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-secondary rounded-full" style="width: 98%;"></div></div>
+            </div>
+          </div>
+          <div class="flex flex-row items-center gap-2 shrink-0 pt-2 lg:pt-0">
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">edit</span><span>Edit</span></button>
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">insights</span><span>Results</span></button>
+            <button class="border border-primary-container text-primary-container hover:bg-surface-container-low px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">lock_open</span><span>Open exam</span></button>
+          </div>
+        </article>
+
+        <!-- Card 4: CS-415 (CLOSED) -->
+        <article class="exam-card bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden group" data-category="closed" data-subject="Computer Science">
+          <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-outline-variant"></div>
+          <div class="flex flex-col gap-2 flex-1 pl-2">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold bg-surface-container-high text-secondary"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>CLOSED</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant font-semibold tracking-wider">CS-415</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Computer Science</span>
+            </div>
+            <div>
+              <h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors">Distributed Systems &amp; Cloud Architecture</h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Department of Computer Science</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 font-body-sm text-body-sm text-on-surface-variant">
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">quiz</span>40 Questions</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-label-md text-on-surface-variant">timer</span>75 Minutes</span>
+              <span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+              <span class="flex items-center gap-1.5 text-on-surface-variant"><span class="material-symbols-outlined text-label-md text-on-surface-variant">event_available</span>Closed: Nov 10, 2026</span>
+            </div>
+            <div class="w-full max-w-md pt-2">
+              <div class="flex items-center justify-between text-body-sm-medium text-on-surface mb-1">
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>64 / 64 Submitted (100%)</span>
+                <span class="text-tertiary font-label-sm text-label-sm font-semibold">Complete</span>
+              </div>
+              <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-tertiary-container rounded-full" style="width: 100%;"></div></div>
+            </div>
+          </div>
+          <div class="flex flex-row items-center gap-2 shrink-0 pt-2 lg:pt-0">
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">edit</span><span>Edit</span></button>
+            <button class="bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">insights</span><span>Results</span></button>
+            <button class="border border-primary-container text-primary-container hover:bg-surface-container-low px-4 py-2.5 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">lock_open</span><span>Open exam</span></button>
+          </div>
+        </article>
+      </div>
+
+      <!-- Having trouble -->
+      <section class="mt-2 bg-surface-container-low border border-surface-variant rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary text-headline-sm">help_outline</span>
+          <span class="font-body-md-medium text-body-md-medium text-on-surface">Having trouble?</span>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <a class="px-4 py-2 border border-surface-variant hover:bg-surface-container-lowest text-on-surface font-label-md text-label-md rounded-lg transition-colors" href="#">Guidelines</a>
+          <a class="px-4 py-2 bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md rounded-lg shadow-sm transition-colors" href="#">Get help</a>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== EMPTY STATE (hidden while exams exist) ===================== -->
+    <div class="hidden flex flex-col items-center justify-center py-16 px-gutter text-center bg-surface-container-lowest rounded-2xl shadow-sm" id="view-empty">
+      <div class="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center mb-space-lg text-primary-container relative">
+        <span class="material-symbols-outlined text-[48px]">library_books</span>
+        <span class="absolute top-2 right-2 w-3.5 h-3.5 bg-primary-container rounded-full animate-ping opacity-75"></span>
+        <span class="absolute top-2 right-2 w-3.5 h-3.5 bg-primary-container rounded-full"></span>
+      </div>
+      <div class="max-w-md space-y-space-xs mb-space-xl">
+        <h2 class="font-headline-md text-headline-md font-bold text-on-surface">No exams yet. Create your first exam.</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant">Set up computer-adaptive evaluations, time-restricted assessments, or configure AI-assisted proctoring protocols for your cohort.</p>
+      </div>
+      <div class="flex flex-col sm:flex-row items-center gap-space-md">
+        <button class="bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2">
+          <span class="material-symbols-outlined text-[20px]">add</span><span>Create exam</span>
+        </button>
+        <button class="bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md px-5 py-3 rounded-xl transition-colors flex items-center gap-2">
+          <span class="material-symbols-outlined text-[20px]">file_open</span><span>Import from Question Bank</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Footer -->
+<footer class="w-full bg-surface-container-lowest border-t border-surface-variant py-space-md mt-auto">
+  <div class="max-w-7xl mx-auto px-margin flex flex-col md:flex-row items-center justify-between gap-space-sm text-on-surface-variant font-body-sm text-body-sm">
+    <div>© 2026 ProctorQuiz · Honor Code · Academic Regulations</div>
+    <div class="flex items-center gap-space-lg">
+      <a class="hover:text-on-surface transition-colors" href="#">Academic Regulations</a>
+      <a class="hover:text-on-surface transition-colors" href="#">Honor Code</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  let currentFilter = 'all';
+  const activeCls = ['bg-primary-container', 'text-on-primary'];
+  const idleCls = ['bg-surface-container-lowest', 'text-on-surface-variant'];
+
+  // Show the empty state only when there are no exam cards at all.
+  function updateView() {
+    const hasExams = document.querySelectorAll('.exam-card').length > 0;
+    document.getElementById('view-populated').classList.toggle('hidden', !hasExams);
+    document.getElementById('view-empty').classList.toggle('hidden', hasExams);
+  }
+
+  document.querySelectorAll('#filter-tabs .filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#filter-tabs .filter-btn').forEach(b => {
+        b.classList.remove(...activeCls);
+        b.classList.add(...idleCls);
+      });
+      btn.classList.remove(...idleCls);
+      btn.classList.add(...activeCls);
+      currentFilter = btn.getAttribute('data-filter');
+      filterExamList();
+    });
+  });
+
+  document.getElementById('search-input').addEventListener('keyup', filterExamList);
+  document.getElementById('subject-filter').addEventListener('change', filterExamList);
+
+  function filterExamList() {
+    const query = (document.getElementById('search-input').value || '').toLowerCase();
+    const subject = document.getElementById('subject-filter').value || 'all';
+    document.querySelectorAll('.exam-card').forEach(card => {
+      const ok =
+        (currentFilter === 'all' || card.dataset.category === currentFilter) &&
+        (subject === 'all' || card.dataset.subject === subject) &&
+        card.textContent.toLowerCase().includes(query);
+      card.style.display = ok ? 'flex' : 'none';
+    });
+  }
+
+  updateView();
+</script>
+</body>
+</html>

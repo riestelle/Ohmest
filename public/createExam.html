@@ -1,0 +1,605 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><title>UEG / ProctorQuiz - Create Exam</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="stitch.css" rel="stylesheet"></head><body class="bg-background font-body-md text-on-surface min-h-screen flex flex-col"><header class="fixed top-0 w-full z-50 bg-surface-container-lowest border-b border-surface-container-high"><div class="h-16 w-full max-w-[1280px] mx-auto px-margin flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-xs"><div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-on-primary font-headline-sm font-bold shadow-[0_1px_2px_rgba(0,0,0,0.05)]">P</div><span class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">ProctorQuiz</span></div><nav class="flex items-center gap-8 h-full"><a href="profDashboard.html" class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 h-16">Dashboard</a><a href="#" class="inline-flex items-center px-1 pt-1 border-b-2 border-[#b5121b] text-sm font-semibold text-gray-900 h-16">Create Exam</a></nav></div><div class="flex items-center gap-space-md"><div class="text-right hidden sm:block"><div class="font-label-md text-label-md font-semibold text-on-surface">Dr. Jane Smith</div></div><div class="flex items-center gap-space-xs"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-on-surface text-[20px]">expand_more</span></div></div></div></header><main class="w-full flex-1 pt-16 bg-surface max-w-[1280px] mx-auto px-margin"><div class="flex flex-col w-full">
+<!-- Exam Creation Action Banner / Top Bar -->
+<section class="py-space-lg flex flex-col gap-space-lg">
+<!-- Header row with contextual metadata & action buttons -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md"><div class="flex flex-col gap-space-xs"><h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Create Examination Module</h1><p class="font-body-md text-body-md text-on-surface-variant">Manage and configure assessment questions and parameters</p></div><div class="flex items-center gap-space-sm self-start lg:self-center"><button class="px-space-md py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors flex items-center gap-space-xs" id="btn-discard" type="button"><span class="material-symbols-outlined text-[18px]">delete_outline</span>Discard Draft</button><button class="px-space-lg py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-colors shadow-sm flex items-center gap-space-xs" id="btn-save" type="button"><span class="material-symbols-outlined text-[18px]">save</span>Save Exam</button></div></div>
+<!-- Exam Parameters Bar -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-md"><div class="grid grid-cols-1 md:grid-cols-12 gap-space-md items-center"><div class="md:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-space-md"><div class="flex flex-col gap-space-xs"><label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="exam-title-input">Assessment Title</label><input class="w-full bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20" id="exam-title-input" type="text" value="Advanced Quantum Mechanics &amp; Thermodynamics Midterm"></div><div class="flex flex-col gap-space-xs"><label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="course-select">Course &amp; Section</label><div class="relative"><select class="w-full appearance-none bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 pr-8" id="course-select"><option value="phys301">PHYS 301 - Theoretical Physics</option><option value="chem204">CHEM 204 - Chemical Kinetics</option><option value="bio410">BIOL 410 - Molecular Genetics</option><option value="math220">MATH 220 - Linear Algebra</option></select><span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">expand_more</span></div></div><div class="flex flex-col gap-space-xs"><label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="duration-select">Allocated Time Limit</label><div class="relative"><select class="w-full appearance-none bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 pr-8" id="duration-select"><option value="90">90 Minutes (Standard)</option><option value="60">60 Minutes</option><option value="120">120 Minutes (Extended)</option><option value="180">180 Minutes (Comprehensive)</option></select><span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">timer</span></div></div></div><div class="md:col-span-4 flex items-center justify-around sm:justify-end gap-space-md border-t md:border-t-0 md:border-l border-surface-container-high pt-space-sm md:pt-0 md:pl-space-md"><div class="flex flex-col text-center md:text-right"><span class="font-label-sm text-label-sm text-on-surface-variant font-semibold uppercase">Total Points</span><span class="font-headline-sm text-headline-sm text-primary font-bold" id="summary-points">15 pts</span></div><div class="flex flex-col text-center md:text-right"><span class="font-label-sm text-label-sm text-on-surface-variant font-semibold uppercase">Items</span><span class="font-headline-sm text-headline-sm text-on-surface font-bold" id="summary-count">3 items</span></div></div></div><div class="border-t border-surface-container-high pt-space-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm bg-surface-container-low/60 p-space-sm rounded-lg"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[20px]">shuffle</span></div><div class="flex flex-col"><span class="font-label-md text-label-md text-on-surface font-semibold">Shuffle questions for each student</span><span class="font-label-sm text-label-sm text-on-surface-variant">Randomizes question order per student attempt (e.g. Q1 is different for every student)</span></div></div><label class="relative inline-flex items-center cursor-pointer shrink-0"><input checked="" class="sr-only peer" type="checkbox"><div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div></label></div></div>
+</section>
+<!-- Main 2-Column Workspace Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg pb-space-xl items-start">
+<!-- LEFT COLUMN: Method Chooser & Active Builder (7 Columns) -->
+<div class="lg:col-span-7 flex flex-col gap-space-lg">
+<!-- Question Builder Container Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col gap-space-lg">
+<!-- Header: Method Selector Bar -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-sm text-headline-sm text-on-surface tracking-tight">Question Builder</h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Step 1: Choose Evaluation Method</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Select an assessment type below to expand its dedicated configuration schema.</p>
+</div>
+<!-- Method Tabs / Chooser Segmented Ribbon -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-xs p-1 rounded-lg bg-surface-container-low" id="method-tab-group" role="tablist">
+<button aria-selected="true" class="method-btn py-2.5 px-2 rounded-lg font-label-md text-label-md flex flex-col items-center gap-1 text-center transition-all bg-surface-container-lowest text-primary" data-method="mcq" role="tab" type="button">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">radio_button_checked</span>
+<span>Multiple Choice</span>
+</button>
+<button aria-selected="false" class="method-btn py-2.5 px-2 rounded-lg font-label-md text-label-md flex flex-col items-center gap-1 text-center transition-all text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50" data-method="short" role="tab" type="button">
+<span class="material-symbols-outlined text-[20px]">short_text</span>
+<span>Short Answer</span>
+</button>
+<button aria-selected="false" class="method-btn py-2.5 px-2 rounded-lg font-label-md text-label-md flex flex-col items-center gap-1 text-center transition-all text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50" data-method="numeric" role="tab" type="button">
+<span class="material-symbols-outlined text-[20px]">calculate</span>
+<span>Numeric Calculation</span>
+</button>
+<button aria-selected="false" class="method-btn py-2.5 px-2 rounded-lg font-label-md text-label-md flex flex-col items-center gap-1 text-center transition-all text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50" data-method="essay" role="tab" type="button">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+<span>Written Essay</span>
+</button>
+</div>
+<!-- Dynamic Form Panels Container -->
+<div class="flex flex-col gap-space-md" id="forms-wrapper">
+<!-- METHOD 1: MULTIPLE CHOICE FORM -->
+<form class="method-form flex flex-col gap-space-md" id="form-mcq">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between" for="mcq-prompt">
+<span>Prompt / Problem Statement</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Supports Markdown &amp; LaTeX</span>
+</label>
+<textarea class="w-full bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg p-3 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 resize-none" id="mcq-prompt" rows="3">Which of the following describes the quantum mechanical phenomenon where a particle tunnels through a potential barrier higher than its kinetic energy?</textarea>
+</div>
+<!-- Choice Options Manager -->
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Answer Choices</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Select the radio indicator to denote the correct answer key</span>
+</div>
+<div class="flex flex-col gap-space-xs" id="mcq-options-container">
+<!-- Option A -->
+<div class="flex items-center gap-space-sm p-space-xs rounded-lg bg-surface-container-low transition-colors">
+<input checked="" class="w-5 h-5 accent-primary cursor-pointer ml-2" id="opt-a" name="mcq-correct" type="radio">
+<span class="font-label-md text-label-md text-primary font-bold w-5 text-center">A</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md outline-none focus:ring-2 focus:ring-primary-container/20" type="text" value="Quantum Tunneling">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Delete choice" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Option B -->
+<div class="flex items-center gap-space-sm p-space-xs rounded-lg bg-surface-container-low transition-colors">
+<input class="w-5 h-5 accent-primary cursor-pointer ml-2" id="opt-b" name="mcq-correct" type="radio">
+<span class="font-label-md text-label-md text-on-surface-variant font-bold w-5 text-center">B</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md outline-none focus:ring-2 focus:ring-primary-container/20" type="text" value="Photoelectric Disruption">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Delete choice" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Option C -->
+<div class="flex items-center gap-space-sm p-space-xs rounded-lg bg-surface-container-low transition-colors">
+<input class="w-5 h-5 accent-primary cursor-pointer ml-2" id="opt-c" name="mcq-correct" type="radio">
+<span class="font-label-md text-label-md text-on-surface-variant font-bold w-5 text-center">C</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md outline-none focus:ring-2 focus:ring-primary-container/20" type="text" value="Heisenberg Uncertainty Dispersion">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Delete choice" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Option D -->
+<div class="flex items-center gap-space-sm p-space-xs rounded-lg bg-surface-container-low transition-colors">
+<input class="w-5 h-5 accent-primary cursor-pointer ml-2" id="opt-d" name="mcq-correct" type="radio">
+<span class="font-label-md text-label-md text-on-surface-variant font-bold w-5 text-center">D</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md outline-none focus:ring-2 focus:ring-primary-container/20" type="text" value="Pauli Exclusion Drift">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Delete choice" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<button class="self-start mt-1 px-3 py-1.5 rounded-lg text-primary bg-surface-container-low hover:bg-surface-container-high font-label-md text-label-md transition-colors flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Add Choice Option
+              </button>
+</div>
+<!-- Metadata Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-space-xs">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="mcq-points">Point Weight</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="mcq-points" max="100" min="1" type="number" value="4">
+<span class="text-on-surface-variant font-label-sm text-label-sm">PTS</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="mcq-time">Suggested Duration</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="mcq-time" max="60" min="1" type="number" value="3">
+<span class="text-on-surface-variant font-label-sm text-label-sm">MIN</span>
+</div>
+</div>
+</div>
+<!-- Submit action -->
+<div class="pt-space-sm flex justify-end">
+<button class="btn-add-question px-space-lg py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all flex items-center gap-space-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Add Question to Exam
+              </button>
+</div>
+</form>
+<!-- METHOD 2: SHORT ANSWER FORM (Hidden by default) -->
+<form class="method-form hidden flex flex-col gap-space-md" id="form-short">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold" for="short-prompt">Prompt / Problem Statement</label>
+<textarea class="w-full bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg p-3 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 resize-none" id="short-prompt" placeholder="e.g. State the thermodynamic property that remains invariant in an isentropic process." rows="3">State the thermodynamic variable that remains strictly invariant throughout a reversible adiabatic (isentropic) process.</textarea>
+</div>
+<!-- Accepted Answers -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold">Accepted Answer Equivalents</label>
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-1.5 text-body-md font-body-md outline-none" type="text" value="Entropy">
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-1.5 text-body-md font-body-md outline-none" type="text" value="S (entropy)">
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
+<input class="flex-1 bg-surface-container-lowest text-on-surface rounded-lg px-3 py-1.5 text-body-md font-body-md outline-none" type="text" value="Total entropy">
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">info</span>
+                Grading is case-insensitive and trims extraneous leading/trailing whitespace automatically.
+              </p>
+</div>
+<!-- Metadata Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-space-xs">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="short-points">Point Weight</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="short-points" max="100" min="1" type="number" value="5">
+<span class="text-on-surface-variant font-label-sm text-label-sm">PTS</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="short-time">Suggested Duration</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="short-time" max="60" min="1" type="number" value="4">
+<span class="text-on-surface-variant font-label-sm text-label-sm">MIN</span>
+</div>
+</div>
+</div>
+<!-- Submit action -->
+<div class="pt-space-sm flex justify-end">
+<button class="btn-add-question px-space-lg py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all flex items-center gap-space-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Add Question to Exam
+              </button>
+</div>
+</form>
+<!-- METHOD 3: NUMERIC CALCULATION FORM (Hidden by default) -->
+<form class="method-form hidden flex flex-col gap-space-md" id="form-numeric">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold" for="num-prompt">Problem Formulation</label>
+<textarea class="w-full bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg p-3 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 resize-none" id="num-prompt" rows="3">Calculate the de Broglie wavelength (in nanometers) of an electron accelerated through a potential difference of 150 Volts. Round to two significant decimals.</textarea>
+</div>
+<!-- Parameters Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-sm">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold">Target Value</label>
+<input class="w-full bg-surface-container-low text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md outline-none" type="text" value="0.10">
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold">Tolerance Margin</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<span class="text-on-surface-variant font-label-sm text-label-sm mr-1">±</span>
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" step="0.1" type="number" value="2.5">
+<span class="text-on-surface-variant font-label-sm text-label-sm">%</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold">Expected Units</label>
+<input class="w-full bg-surface-container-low text-on-surface rounded-lg px-3 py-2 text-body-md font-body-md outline-none" type="text" value="nm (nanometers)">
+</div>
+</div>
+<!-- Metadata Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-space-xs">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="num-points">Point Weight</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="num-points" max="100" min="1" type="number" value="6">
+<span class="text-on-surface-variant font-label-sm text-label-sm">PTS</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="num-time">Suggested Duration</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="num-time" max="60" min="1" type="number" value="7">
+<span class="text-on-surface-variant font-label-sm text-label-sm">MIN</span>
+</div>
+</div>
+</div>
+<!-- Submit action -->
+<div class="pt-space-sm flex justify-end">
+<button class="btn-add-question px-space-lg py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all flex items-center gap-space-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Add Question to Exam
+              </button>
+</div>
+</form>
+<!-- METHOD 4: ESSAY FORM (Hidden by default) -->
+<form class="method-form hidden flex flex-col gap-space-md" id="form-essay">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold" for="essay-prompt">Essay Prompt &amp; Requirements</label>
+<textarea class="w-full bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg p-3 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 resize-none" id="essay-prompt" rows="3">Derive the time-independent Schrödinger wave equation starting from de Broglie's hypothesis and classical energy conservation. Outline key boundary assumptions.</textarea>
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold" for="essay-rubric">Grading Rubric / Model Solution Criteria</label>
+<textarea class="w-full bg-surface-container-low focus:bg-surface-container-lowest text-on-surface rounded-lg p-3 text-body-md font-body-md transition-all outline-none focus:ring-2 focus:ring-primary-container/20 resize-none" id="essay-rubric" rows="2">2 pts for kinetic/potential expression, 4 pts for wave equation differentiation, 4 pts for boundary continuity logic.</textarea>
+</div>
+<!-- Feature Toggles -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-medium">Allow Handwritten Image Upload</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Candidates may photograph handwritten mathematical derivations using secure webcam</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<!-- Metadata Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-space-xs">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="essay-points">Point Weight</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="essay-points" max="100" min="1" type="number" value="10">
+<span class="text-on-surface-variant font-label-sm text-label-sm">PTS</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant font-semibold" for="essay-time">Suggested Duration</label>
+<div class="flex items-center rounded-lg bg-surface-container-low px-3 py-2">
+<input class="w-full bg-transparent text-on-surface text-body-md font-body-md outline-none" id="essay-time" max="60" min="1" type="number" value="15">
+<span class="text-on-surface-variant font-label-sm text-label-sm">MIN</span>
+</div>
+</div>
+</div>
+<!-- Submit action -->
+<div class="pt-space-sm flex justify-end">
+<button class="btn-add-question px-space-lg py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all flex items-center gap-space-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Add Question to Exam
+              </button>
+</div>
+</form>
+</div>
+</div>
+<!-- Section: Questions In This Exam (Collapsible / Summary Card) -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs border-b border-surface-container-high">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[22px]">format_list_numbered</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Curated Examination Queue</h3>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold">3 Configured</span>
+</div>
+<div class="flex flex-col gap-space-xs" id="queue-list">
+<!-- Item 1 -->
+<div class="queue-item flex items-center justify-between p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all group">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-on-surface-variant cursor-grab text-[20px]">drag_indicator</span>
+<span class="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center font-label-sm text-label-sm font-bold text-on-surface">1</span>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md font-medium text-on-surface truncate">Quantum mechanical potential barrier tunneling</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Multiple Choice · 4 Points · 3 Min</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Edit Question" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Duplicate" type="button">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors btn-delete-item" title="Delete" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="queue-item flex items-center justify-between p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all group">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-on-surface-variant cursor-grab text-[20px]">drag_indicator</span>
+<span class="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center font-label-sm text-label-sm font-bold text-on-surface">2</span>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md font-medium text-on-surface truncate">Thermodynamic variable invariant in isentropic expansion</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Short Answer · 5 Points · 4 Min</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Edit Question" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Duplicate" type="button">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors btn-delete-item" title="Delete" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="queue-item flex items-center justify-between p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all group">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-on-surface-variant cursor-grab text-[20px]">drag_indicator</span>
+<span class="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center font-label-sm text-label-sm font-bold text-on-surface">3</span>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md font-medium text-on-surface truncate">De Broglie wavelength of accelerated electron</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Numeric Calculation · 6 Points · 7 Min</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Edit Question" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Duplicate" type="button">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors btn-delete-item" title="Delete" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<div class="pt-space-xs flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span>Total duration estimated: ~14 minutes</span>
+<span class="text-tertiary flex items-center gap-1 font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+            Proctoring Integrity Active
+          </span>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Interactive Live Student Preview (5 Columns Sticky) -->
+<div class="lg:col-span-5 sticky top-20 flex flex-col gap-space-md">
+<div class="bg-surface-container-lowest rounded-xl shadow-md p-space-lg flex flex-col gap-space-md">
+<!-- Live Preview Header with Switcher -->
+<div class="flex items-center justify-between pb-space-xs border-b border-surface-container-high">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">visibility</span>
+<h3 class="font-title-md text-title-md text-on-surface">Candidate View Simulator</h3>
+</div>
+<div class="flex items-center p-0.5 rounded-lg bg-surface-container-low text-label-sm">
+<button class="px-2.5 py-1 rounded bg-surface-container-lowest text-primary font-semibold" id="tab-preview-active" type="button">Item Preview</button>
+<button class="px-2.5 py-1 text-on-surface-variant hover:text-on-surface transition-colors" id="tab-preview-flow" type="button">Exam Flow</button>
+</div>
+</div>
+<!-- Simulated Student Exam Environment -->
+<div class="rounded-xl bg-surface p-space-md flex flex-col gap-space-md">
+<!-- Student Proctor Header Bar Simulator -->
+<div class="flex items-center justify-between px-space-sm py-2 rounded-lg bg-surface-container-lowest">
+<div class="flex items-center gap-space-xs">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Session Monitored</span>
+</div>
+<div class="flex items-center gap-space-xs px-2.5 py-1 rounded bg-surface-container-high text-primary font-label-sm text-label-sm font-bold tracking-wider">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+<span id="preview-countdown">01:29:42</span>
+</div>
+</div>
+<!-- Active Question Simulation Canvas -->
+<div class="flex flex-col gap-space-md" id="preview-question-box">
+<!-- Question Meta -->
+<div class="flex items-center justify-between">
+<span class="px-2.5 py-1 rounded-md bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold">Question 1 of 3</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-bold">4.0 Points</span>
+</div>
+<!-- Question Prompt Content -->
+<div class="flex flex-col gap-space-xs">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed font-medium" id="preview-prompt-text">
+                Which of the following describes the quantum mechanical phenomenon where a particle tunnels through a potential barrier higher than its kinetic energy?
+              </p>
+</div>
+<!-- Student Interactive Options (Simulated) -->
+<div class="flex flex-col gap-space-xs" id="preview-interactive-options">
+<label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+<input class="w-4 h-4 accent-primary" name="preview-student-ans" type="radio">
+<span class="font-body-md text-body-md text-on-surface">Quantum Tunneling</span>
+</label>
+<label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+<input class="w-4 h-4 accent-primary" name="preview-student-ans" type="radio">
+<span class="font-body-md text-body-md text-on-surface">Photoelectric Disruption</span>
+</label>
+<label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+<input class="w-4 h-4 accent-primary" name="preview-student-ans" type="radio">
+<span class="font-body-md text-body-md text-on-surface">Heisenberg Uncertainty Dispersion</span>
+</label>
+<label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+<input class="w-4 h-4 accent-primary" name="preview-student-ans" type="radio">
+<span class="font-body-md text-body-md text-on-surface">Pauli Exclusion Drift</span>
+</label>
+</div>
+<!-- Student Action Simulation -->
+<div class="flex items-center justify-between pt-space-xs">
+<button class="text-on-surface-variant hover:text-on-surface text-label-sm font-label-sm flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">flag</span>
+                Flag for Review
+              </button>
+<button class="px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container transition-colors flex items-center gap-1" id="btn-preview-next" type="button">
+<span>Lock Answer &amp; Next</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Live Preview Reassuring Footnote -->
+</div>
+<!-- Quick Proctoring Configuration Card -->
+</div>
+</div>
+<!-- Notification Toast Container -->
+<div class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 flex items-center gap-space-xs bg-inverse-surface text-inverse-on-surface px-space-md py-space-sm rounded-lg shadow-xl font-label-md text-label-md" id="toast-msg">
+<span class="material-symbols-outlined text-tertiary-fixed text-[20px]">check_circle</span>
+<span id="toast-text">Question appended successfully to examination.</span>
+</div>
+<!-- Client-side Interactive Logic -->
+<script>
+    (function initExamEditor() {
+      // Elements
+      const methodBtns = document.querySelectorAll('.method-btn');
+      const forms = {
+        mcq: document.getElementById('form-mcq'),
+        short: document.getElementById('form-short'),
+        numeric: document.getElementById('form-numeric'),
+        essay: document.getElementById('form-essay')
+      };
+
+      const previewPrompt = document.getElementById('preview-prompt-text');
+      const previewOptions = document.getElementById('preview-interactive-options');
+      const addBtns = document.querySelectorAll('.btn-add-question');
+      const queueList = document.getElementById('queue-list');
+      const summaryPoints = document.getElementById('summary-points');
+      const summaryCount = document.getElementById('summary-count');
+      const toast = document.getElementById('toast-msg');
+      const toastText = document.getElementById('toast-text');
+
+      // Method Tab Switching
+      methodBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetMethod = btn.getAttribute('data-method');
+          
+          // Tab active states
+          methodBtns.forEach(b => {
+            b.setAttribute('aria-selected', 'false');
+            b.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-xs');
+            b.classList.add('text-on-surface-variant');
+          });
+
+          btn.setAttribute('aria-selected', 'true');
+          btn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-xs');
+          btn.classList.remove('text-on-surface-variant');
+
+          // Switch forms
+          Object.keys(forms).forEach(key => {
+            if (key === targetMethod) {
+              forms[key].classList.remove('hidden');
+            } else {
+              forms[key].classList.add('hidden');
+            }
+          });
+
+          // Sync Live Preview with chosen method archetype
+          updateLivePreview(targetMethod);
+        });
+      });
+
+      function updateLivePreview(method) {
+        if (method === 'mcq') {
+          previewPrompt.textContent = "Which of the following describes the quantum mechanical phenomenon where a particle tunnels through a potential barrier higher than its kinetic energy?";
+          previewOptions.innerHTML = `
+            <label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+              <input type="radio" name="preview-student-ans" class="w-4 h-4 accent-primary">
+              <span class="font-body-md text-body-md text-on-surface">Quantum Tunneling</span>
+            </label>
+            <label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+              <input type="radio" name="preview-student-ans" class="w-4 h-4 accent-primary">
+              <span class="font-body-md text-body-md text-on-surface">Photoelectric Disruption</span>
+            </label>
+            <label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+              <input type="radio" name="preview-student-ans" class="w-4 h-4 accent-primary">
+              <span class="font-body-md text-body-md text-on-surface">Heisenberg Uncertainty Dispersion</span>
+            </label>
+            <label class="preview-option-row flex items-center gap-space-sm p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high/50 cursor-pointer transition-all">
+              <input type="radio" name="preview-student-ans" class="w-4 h-4 accent-primary">
+              <span class="font-body-md text-body-md text-on-surface">Pauli Exclusion Drift</span>
+            </label>
+          `;
+        } else if (method === 'short') {
+          previewPrompt.textContent = "State the thermodynamic variable that remains strictly invariant throughout a reversible adiabatic (isentropic) process.";
+          previewOptions.innerHTML = `
+            <div class="flex flex-col gap-2">
+              <input type="text" placeholder="Type your concise answer here..." class="w-full bg-surface-container-lowest rounded-lg p-3 text-body-md font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary-container/20">
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Press Enter or click Lock Answer to record response.</span>
+            </div>
+          `;
+        } else if (method === 'numeric') {
+          previewPrompt.textContent = "Calculate the de Broglie wavelength (in nanometers) of an electron accelerated through a potential difference of 150 Volts. Round to two significant decimals.";
+          previewOptions.innerHTML = `
+            <div class="flex items-center gap-3 bg-surface-container-lowest p-2 rounded-lg">
+              <input type="number" step="any" placeholder="0.00" class="flex-1 bg-transparent px-2 py-1 text-body-md font-body-md text-on-surface outline-none font-semibold">
+              <span class="text-on-surface-variant font-label-md text-label-md pr-2">nm</span>
+            </div>
+          `;
+        } else if (method === 'essay') {
+          previewPrompt.textContent = "Derive the time-independent Schrödinger wave equation starting from de Broglie's hypothesis and classical energy conservation. Outline key boundary assumptions.";
+          previewOptions.innerHTML = `
+            <div class="flex flex-col gap-space-xs">
+              <textarea rows="4" placeholder="Draft your written solution or mathematical proof here..." class="w-full bg-surface-container-lowest rounded-lg p-3 text-body-md font-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary-container/20 resize-none"></textarea>
+              <div class="flex items-center justify-between">
+                <button type="button" class="text-primary hover:text-primary-container text-label-sm font-label-sm flex items-center gap-1 font-semibold">
+                  <span class="material-symbols-outlined text-[16px]">photo_camera</span>
+                  Attach Handwritten Photo Page
+                </button>
+                <span class="font-label-sm text-label-sm text-on-surface-variant">0 / 1000 words</span>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      // Add Question Action Handlers
+      addBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          showToast('Question successfully configured and added to this exam!');
+        });
+      });
+
+      // Save Exam Action Handler
+      const saveBtn = document.getElementById('btn-save');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          showToast('Draft Examination saved securely to Question Bank.');
+        });
+      }
+
+      // Discard Button Action
+      const discardBtn = document.getElementById('btn-discard');
+      if (discardBtn) {
+        discardBtn.addEventListener('click', () => {
+          if (confirm('Discard changes and reset examination editor?')) {
+            showToast('Changes discarded.');
+          }
+        });
+      }
+
+      // Toast feedback helper
+      function showToast(message) {
+        if (!toast) return;
+        toastText.textContent = message;
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+        setTimeout(() => {
+          toast.classList.remove('translate-y-0', 'opacity-100');
+          toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3200);
+      }
+
+      // Delete question row demo
+      queueList.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.btn-delete-item');
+        if (deleteBtn) {
+          const item = deleteBtn.closest('.queue-item');
+          if (item) {
+            item.remove();
+            showToast('Question removed from exam queue.');
+          }
+        }
+      });
+    })();
+  </script>
+</div></main><footer class="w-full bg-surface-container-lowest border-t border-surface-container-high py-space-lg mt-auto"><div class="w-full max-w-[1280px] mx-auto px-margin flex flex-col md:flex-row items-center justify-between gap-space-md font-body-sm text-body-sm text-on-surface-variant"><div class="flex items-center gap-space-xs"><span>© 2026 ProctorQuiz</span><span class="text-outline-variant">·</span><span>Honor Code</span><span class="text-outline-variant">·</span><span>Academic Regulations</span></div><div class="flex items-center gap-space-md font-body-sm-medium text-body-sm-medium"><a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Academic Regulations</a><span class="text-outline-variant">·</span><a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Honor Code</a><span class="text-outline-variant">·</span><a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Support</a></div></div></footer>
+
+</body></html>
