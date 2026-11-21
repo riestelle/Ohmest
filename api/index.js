@@ -469,14 +469,21 @@ async function pushSheet(url, key, payload, ms = 8000) {
   finally { clearTimeout(tm); }
 }
 /* save an attempt; when it has just finished, send its row to the sheet */
+/* run slow work after the response has gone out (Vercel keeps the function alive for it); anywhere else it simply waits */
+const later = p => { const c = globalThis[Symbol.for('@vercel/request-context')]?.get?.(); if (c && c.waitUntil) { c.waitUntil(p); return null; } return p; };
 async function put(a, ex) {
   const o = opt(ex), fin = a.status !== 'in_progress' && !a.synced && !!o.sheetUrl;
   await r.set(aKey(a.eid, a.sid), a);
+  if (a.status !== 'in_progress') await r.sadd('ad:' + a.eid, norm(a.sid));   // finished-attempts list, so the dashboard can count without loading attempts
   if (!fin) return;
-  const K = (await getK(ex));
-  const x = analyze(ex, K, [a]).atts[0];
-  const res = await pushSheet(o.sheetUrl, o.sheetKey, { title: ex.title, rows: [sheetRow(x)] }, 4000);
-  if (res.ok) { a.synced = true; await r.set(aKey(a.eid, a.sid), a); }
+  const sync = async () => {
+    const K = (await getK(ex));
+    const x = analyze(ex, K, [a]).atts[0];
+    const res = await pushSheet(o.sheetUrl, o.sheetKey, { title: ex.title, rows: [sheetRow(x)] }, 8000);
+    if (res.ok) { const cur = await r.get(aKey(a.eid, a.sid)); if (cur) { cur.synced = true; await r.set(aKey(a.eid, a.sid), cur); } }
+  };
+  const job = later(sync().catch(() => { /* the professor can press "Send all results now" */ }));
+  if (job) await job;
 }
 
 const aKey = (eid, sid) => 'a:' + eid + ':' + norm(sid);
@@ -489,7 +496,7 @@ async function loadAtt(b) {
 }
 async function clearAtt(ex, sid) {
   await r.del(aKey(ex.id, sid), ...Array.from({ length: Math.max(ex.questions.length, 1) }, (_, i) => wKey(ex.id, sid, i)));
-  await r.srem('as:' + ex.id, norm(sid));
+  await r.srem('as:' + ex.id, norm(sid)); await r.srem('ad:' + ex.id, norm(sid));
 }
 async function allAtts(ex) {
   const ids = (await r.smembers('as:' + ex.id)) || [];
@@ -497,12 +504,12 @@ async function allAtts(ex) {
 }
 async function dropExam(ex) {
   for (const id of ((await r.smembers('as:' + ex.id)) || [])) await clearAtt(ex, id);
-  await r.del('e:' + ex.id, 'k:' + ex.id, 'ann:' + ex.id, 'as:' + ex.id);
+  await r.del('e:' + ex.id, 'k:' + ex.id, 'ann:' + ex.id, 'as:' + ex.id, 'ad:' + ex.id, 'adm:' + ex.id);
   await r.srem('ue:' + ex.owner, ex.id); await r.srem('se:' + ex.school, ex.id);
 }
-const examCard = (ex, atts) => {
-  const o = opt(ex), done = atts.filter(a => a.status !== 'in_progress').length;
-  return { id: ex.id, title: ex.title, status: ex.status, scheduled: ex.status === 'open' && !!o.opens && Date.now() < o.opens, n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), opens: o.opens, closes: o.closes, total: atts.length, done, prog: atts.length - done, created: ex.created || 0 };
+const examCard = (ex, total, done) => {
+  const o = opt(ex);
+  return { id: ex.id, title: ex.title, status: ex.status, scheduled: ex.status === 'open' && !!o.opens && Date.now() < o.opens, n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), opens: o.opens, closes: o.closes, total, done, prog: total - done, created: ex.created || 0 };
 };
 const examInfo = (ex, school, owner) => {
   const o = opt(ex);
@@ -564,10 +571,16 @@ async function route(b, ip) {
       const u = await needUser(b);
       const ids = (await r.smembers('ue:' + u.email)) || [];
       const list = [];
-      for (const id of ids) {
-        const ex = await r.get('e:' + id); if (!ex) continue;
-        list.push(examCard(ex, await allAtts(ex)));
-      }
+      await Promise.all(ids.map(async id => {
+        const ex = await r.get('e:' + id); if (!ex) return;
+        const total = (await r.scard('as:' + id)) || 0;
+        if (total && !(await r.get('adm:' + id))) {   // exams made before this update: count finished attempts once, then keep the list
+          const fin = (await allAtts(ex)).filter(a => a.status !== 'in_progress');
+          if (fin.length) await r.sadd('ad:' + id, ...fin.map(a => norm(a.sid)));
+          await r.set('adm:' + id, 1);
+        }
+        list.push(examCard(ex, total, Math.min(total, (await r.scard('ad:' + id)) || 0)));
+      }));
       return { exams: list.sort((a, c) => c.created - a.created) };
     }
     case 'create': {
@@ -575,7 +588,7 @@ async function route(b, ip) {
       if (((await r.scard('ue:' + u.email)) || 0) >= 100) throw err('You have reached the limit of 100 exams. Delete one first.');
       const id = crypto.randomBytes(5).toString('hex');
       await r.set('e:' + id, { id, school: u.school, owner: u.email, title: str(b.title, 120) || 'Untitled exam', maxLeaves: 3, status: 'closed', set: mkSet(NEW_EXAM), questions: [], created: Date.now() });
-      await r.set('k:' + id, []);
+      await r.set('k:' + id, []); await r.set('adm:' + id, 1);
       await r.sadd('ue:' + u.email, id); await r.sadd('se:' + u.school, id);
       return { id };
     }
@@ -652,6 +665,16 @@ async function route(b, ip) {
     case 'reset': {
       const ex = await ownEx(b, await needUser(b));
       await clearAtt(ex, b.sid);
+      return { ok: 1 };
+    }
+    case 'unlock': {   // a locked student continues where they stopped (answers are kept; "reset" would wipe them)
+      const ex = await ownEx(b, await needUser(b));
+      const a = await r.get(aKey(ex.id, b.sid));
+      if (!a) throw err('Student not found');
+      if (a.status !== 'locked') throw err('That attempt is not locked.');
+      a.status = 'in_progress'; delete a.finished; a.leaves = 0; a.awayAt = 0; a.qStart = Date.now(); a.synced = false;
+      a.ev.push({ t: Date.now(), k: 'unlocked' });
+      await r.set(aKey(ex.id, a.sid), a); await r.srem('ad:' + ex.id, norm(a.sid));
       return { ok: 1 };
     }
     case 'clear': {

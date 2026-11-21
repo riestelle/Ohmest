@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><meta name="robots" content="noindex"><title>Exam editor · Ohmest</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script></head><body>
+</head><body>
 <div id="hdr"></div>
 <main class="wrap ed"><div id="app"><p class="mu">Loading…</p></div></main>
 <div id="ftr"></div>
@@ -18,7 +18,7 @@ const fromSrv = (q, k = {}) => ({
   v: (k.v || []).join(', '), tol: k.tol ?? 2, u: k.u || '', mode: k.f ? 'rand' : 'fixed', vars: (q.vars || []).map(x => ({ ...x })), f: k.f || '',
   fu: q.fu ? { q: q.fu.q, c: [...q.fu.c], a: k.fa || 0, t: q.fu.t } : null,
 });
-const evn = e => ({ tab_hidden: 'Switched tab / app', window_blur: 'Window lost focus', fullscreen_exit: 'Exited fullscreen', back: 'Returned after ' + Math.round((e.d || 0) / 1000) + 's', resumed: 'Reloaded the page', paste: 'Tried to copy/paste', keys: 'Blocked shortcut', flag: 'Flagged the question as unclear', nofs: 'Fullscreen not available on this device' }[e.k] || e.k) + (e.qi != null && e.k !== 'back' ? ' (Q' + (e.qi + 1) + ')' : '');
+const evn = e => ({ unlocked: 'Professor unlocked the exam', tab_hidden: 'Switched tab / app', window_blur: 'Window lost focus', fullscreen_exit: 'Exited fullscreen', back: 'Returned after ' + Math.round((e.d || 0) / 1000) + 's', resumed: 'Reloaded the page', paste: 'Tried to copy/paste', keys: 'Blocked shortcut', flag: 'Flagged the question as unclear', nofs: 'Fullscreen not available on this device' }[e.k] || e.k) + (e.qi != null && e.k !== 'back' ? ' (Q' + (e.qi + 1) + ')' : '');
 const fmt = x => String(+Number(x).toPrecision(6));
 const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(vars, k) ? fmt(vars[k]) : m));
 const varTxt = v => Object.entries(v || {}).map(([k, x]) => k + ' = ' + x).join(', ');
@@ -62,7 +62,7 @@ async function setTab(t) {
   tab = t; clearInterval(poll); window.scrollTo(0, 0);
   if (t === 'r') {
     await loadRes();
-    poll = setInterval(async () => { await loadRes(); const a = document.activeElement; if (tab === 'r' && !(a && (a.id === 'an' || a.tagName === 'INPUT')) && !document.querySelector('details[open]')) renderProf(); }, 10000);
+    poll = setInterval(async () => { if (document.hidden) return; await loadRes(); const a = document.activeElement; if (tab === 'r' && !(a && (a.id === 'an' || a.tagName === 'INPUT')) && !document.querySelector('details[open]')) renderProf(); }, 30000);
   }
   renderProf();
 }
@@ -251,13 +251,13 @@ function profR() {
   const rows = [...atts].sort((a, b) => b.pts - a.pts || (a.name || '').localeCompare(b.name || '')).map(a => {
     const sid = esc(a.sid);
     const det = open.has(a.sid) ? `<tr><td colspan="8" style="white-space:normal;background:var(--bg)">${detail(a)}</td></tr>` : '';
-    return `<tr><td data-act="tg" data-sid="${sid}" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${sid}</span></td><td>${a.status === 'in_progress' ? 'In progress ' + esc(a.prog) : a.status === 'locked' ? '<span class="bad">Locked</span>' : 'Done'}</td><td>${a.score}/${a.of}</td><td><span class="risk r-${a.risk}">${a.risk}</span>${a.review ? '<br><span class="mu">' + (a.review === 'cleared' ? 'Cleared' : 'Needs oral check') + '</span>' : ''}</td><td class="${a.leaves ? 'bad' : ''}">${a.leaves}×</td><td>${a.away}s</td><td>${a.workReq.length ? a.work.length + '/' + a.workReq.length : '—'}</td><td><button class="d" data-act="reset" data-sid="${sid}">Reset</button></td></tr>${det}`;
+    return `<tr><td data-act="tg" data-sid="${sid}" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${sid}</span></td><td>${a.status === 'in_progress' ? 'In progress ' + esc(a.prog) : a.status === 'locked' ? '<span class="bad">Locked</span>' : 'Done'}</td><td>${a.score}/${a.of}</td><td><span class="risk r-${a.risk}">${a.risk}</span>${a.review ? '<br><span class="mu">' + (a.review === 'cleared' ? 'Cleared' : 'Needs oral check') + '</span>' : ''}</td><td class="${a.leaves ? 'bad' : ''}">${a.leaves}×</td><td>${a.away}s</td><td>${a.workReq.length ? a.work.length + '/' + a.workReq.length : '—'}</td><td>${a.status === 'locked' ? `<button class="g s" data-act="unlock" data-sid="${sid}" title="Let this student continue with their answers kept">Unlock</button> ` : ''}<button class="d" data-act="reset" data-sid="${sid}" title="Delete the attempt so the student starts over">Reset</button></td></tr>${det}`;
   }).join('');
   const items = qstat.map(q => `<tr><td>Q${q.n}</td><td style="white-space:normal;min-width:200px">${esc(q.q)}${q.rand ? ' <span class="mu">(random numbers)</span>' : ''}</td><td style="white-space:normal">${esc(q.key)}</td><td>${q.pct == null ? '' : Math.round(q.pct * 100) + '%'}</td><td>${q.avg == null ? '' : Math.round(q.avg / 100) / 10 + 's'}</td><td>${q.t}s</td></tr>`).join('');
   return `<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div>
  <div class="row"><button onclick="exportX()">Download Excel (.xlsx)</button><button class="g" onclick="setTab('r')">Refresh</button>${SET.sheetUrl ? '<button class="g" onclick="pushNow(this)">Send to Google Sheet</button>' : ''}<button class="d" data-act="clear">Clear all attempts</button></div>
  <div class="row mu" style="margin:10px 0"><span>${atts.length} attempt(s)</span><span>· ${done.length} finished</span><span>· class average ${avg}%</span><span>· <b class="${hi.length ? 'bad' : ''}">${hi.length} high</b> / ${me.length} medium risk</span></div>
- <p class="mu">Updates every 10 s. Tap a name for details. Risk is a hint to look closer (a person decides), built from tab switching, answer speed, similarity to other students, follow-up and work-photo checks.</p>
+ <p class="mu">Updates every 30 s. Tap a name for details. Risk is a hint to look closer (a person decides), built from tab switching, answer speed, similarity to other students, follow-up and work-photo checks.</p>
  <div class="card scroll"><table><tr><th>Student</th><th>Status</th><th>Score</th><th>Risk</th><th>Left</th><th>Away</th><th>Work</th><th></th></tr>${rows || '<tr><td colspan="8" class="mu">No attempts yet.</td></tr>'}</table></div>
  <details class="card"><summary><b>Item analysis</b> (which questions the class missed)</summary><div class="scroll"><table><tr><th>Q</th><th>Question</th><th>Key</th><th>% correct</th><th>Avg time</th><th>Limit</th></tr>${items}</table></div></details>`;
 }
@@ -284,6 +284,7 @@ document.addEventListener('click', async e => {
     if (act === 'tg') { open.has(sid) ? open.delete(sid) : open.add(sid); if (open.has(sid)) { const a = atts.find(x => x.sid === sid); if (a && a.work.length && !IMG[sid]) { try { IMG[sid] = (await A('work', { sid })).imgs; } catch (x) { /* ignore */ } } } renderProf(); }
     else if (act === 'work') { b.textContent = 'Loading…'; IMG[sid] = (await A('work', { sid })).imgs; renderProf(); }
     else if (act === 'rev') { await A('review', { sid, review: b.dataset.v }); await loadRes(); renderProf(); }
+    else if (act === 'unlock') { if (confirm('Let this student continue? Their answers are kept, the departure count restarts, and the current question gets a fresh timer.')) { await A('unlock', { sid }); await loadRes(); renderProf(); toast('Unlocked'); } }
     else if (act === 'reset') { if (confirm('Delete this attempt so the student can retake?')) { await A('reset', { sid }); delete IMG[sid]; await loadRes(); renderProf(); } }
     else if (act === 'clear') { if (confirm('Delete ALL attempts and work photos? This cannot be undone. Export to Excel first.')) { const j = await A('clear'); IMG = {}; open.clear(); await loadRes(); renderProf(); alert('Cleared ' + j.n + ' attempt(s).'); } }
   } catch (x) { alert(x.message); }
@@ -291,9 +292,21 @@ document.addEventListener('click', async e => {
 async function sendAnn(c) { try { await A('announce', { text: c ? '' : $('an').value }); if (c) $('an').value = ''; alert(c ? 'Cleared' : 'Sent to everyone taking the exam'); } catch (e) { alert(e.message); } }
 async function pushNow(b) { b.disabled = true; try { const j = await A('sheetPush', { url: SET.sheetUrl, key: SET.sheetKey }); alert('Sent ' + j.n + ' row(s) to Google Sheets.'); } catch (e) { alert(e.message); } b.disabled = false; }
 
-function exportX() {
-  if (typeof XLSX === 'undefined') { alert('The Excel library did not load. Check your internet connection and refresh.'); return; }
-  const wb = XLSX.utils.book_new(), Q = cfg.questions;
+/* the Excel library is only fetched when you click Download, so a slow or blocked CDN never slows the page; if it cannot load, you get a CSV instead */
+let _xl = null;
+const loadXlsx = () => _xl || (_xl = new Promise((ok, no) => {
+  if (typeof XLSX !== 'undefined') return ok();
+  const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = ok; s.onerror = () => { _xl = null; no(new Error('blocked')); }; document.head.appendChild(s);
+}));
+function saveCsv(rows, name) {
+  const cell = c => { c = c ?? ''; if (typeof c === 'string' && /^[=+\-@\t\r]/.test(c)) c = "'" + c; return '"' + String(c).replace(/"/g, '""') + '"'; };
+  const u = URL.createObjectURL(new Blob(['\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a'); a.href = u; a.download = name + ' results.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000);
+}
+async function exportX() {
+  let xl = true; try { await loadXlsx(); } catch (e) { xl = false; }
+  const wb = xl ? XLSX.utils.book_new() : null, Q = cfg.questions;
   const mark = r => r.ok === -1 ? '—' : r.ok ? 'Correct' : r.to ? 'Timed out' : 'Wrong';
   const res = [['Student', 'Student ID', 'Status', 'Score', 'Total', 'Percent', 'Integrity risk', 'Flags', 'Professor review', 'Times left exam', 'Seconds away', 'Work photos', 'Receipt', ...Q.map((_, i) => 'Q' + (i + 1))]];
   const ans = [['Student', 'Student ID', 'Q', 'Their numbers', 'Their answer', 'Expected', 'Result', 'Seconds']];
@@ -307,8 +320,10 @@ function exportX() {
   });
   const item = [['Q#', 'Question', 'Correct answer', '% correct', 'Avg seconds', 'Time limit']];
   qstat.forEach(q => item.push([q.n, q.q, q.key, q.pct == null ? '' : Math.round(q.pct * 100) / 100, q.avg == null ? '' : Math.round(q.avg / 100) / 10, q.t]));
+  const nm = (cfg.title || 'exam').replace(/[^\w\- ]/g, '');
+  if (!xl) { saveCsv(res, nm); toast('The Excel library could not load, so a CSV of the results was downloaded instead.'); return; }
   [['Results', res], ['Answers', ans], ['Flags', flg], ['Item analysis', item], ['Activity log', log]].forEach(([n, d]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(d), n));
-  XLSX.writeFile(wb, (cfg.title || 'exam').replace(/[^\w\- ]/g, '') + ' results.xlsx');
+  XLSX.writeFile(wb, nm + ' results.xlsx');
 }
 const markDirty = e => { const t = e.target; if (tab === 'r' || !t.closest || !t.closest('#app') || ['an', 'imt'].includes(t.id) || t.type === 'file') return; setDirty(true); };
 document.addEventListener('input', markDirty, true); document.addEventListener('change', markDirty, true);

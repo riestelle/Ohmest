@@ -1,4 +1,6 @@
 /* Shared helpers for every Ohmest page */
+/* icons stay invisible until the icon font is really there, so a blocked or slow font never shows words like "arrow_forward" */
+(() => { const d = document.documentElement, on = () => d.classList.add('ico'); try { document.fonts.load('20px "Material Symbols Outlined"', 'home').then(f => { if (f.length) on(); }, () => {}); } catch (e) { on(); } })();
 const $ = id => document.getElementById(id), app = $('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const L = i => String.fromCharCode(65 + i);

@@ -7,7 +7,7 @@
 <div id="list" style="display:flex;flex-direction:column;gap:16px"></div>
 <section class="card"><h2 style="font-size:18px;margin-bottom:4px">Your school</h2><p class="mu" style="margin:0 0 14px">Students sign in at <b id="url"></b> with the student code.</p>
 <div class="codes"><div class="code"><div><small>Student code (share with classes)</small><b id="scode">······</b></div><button class="btn sec sm" id="c1" type="button"><span class="ms">content_copy</span>Copy</button></div>
-<div class="code hidden" id="fbox"><div><small>Faculty code (invite professors)</small><b id="fcode">··········</b></div><button class="btn sec sm" id="c2" type="button"><span class="ms">content_copy</span>Copy</button></div></div></section>
+<div class="code hidden" id="fbox"><div><small>Faculty code (colleagues join your school with it; each professor still sees only their own exams)</small><b id="fcode">··········</b></div><button class="btn sec sm" id="c2" type="button"><span class="ms">content_copy</span>Copy</button></div></div></section>
 </main>
 <div id="ftr"></div>
 <script src="common.js"></script>
@@ -63,5 +63,5 @@ $('list').addEventListener('click', async ev => {
 chrome({ nav: [['Dashboard', 'prof.html', 'd']], active: 'd', who: ME ? { name: ME.user.name, sub: ME.school.name } : { name: 'Professor' } });
 if (ME) paint(ME);
 api('me').then(paint).catch(profFail);
-load(); setInterval(load, 15000);
+load(); setInterval(() => { if (!document.hidden) load(); }, 30000);
 </script></body></html>

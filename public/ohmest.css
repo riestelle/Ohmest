@@ -281,3 +281,5 @@ select{width:auto}
 .ed .vgrid{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .ed .vf4{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:8px;flex:1}
 .ed .vf4 label{font-size:11px;color:var(--mu);display:block}
+/* icon font not loaded yet (or blocked): keep the space, hide the ligature text */
+html:not(.ico) .ms{width:1em;overflow:hidden;visibility:hidden}

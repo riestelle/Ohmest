@@ -93,7 +93,8 @@ On the **Results** tab you can:
 
 - see who is in progress, who finished and who got locked, updating every few seconds
 - post an **announcement** that appears on the screen of students taking the exam right now
-- **Reset** one student if they have a problem (this wipes that student's attempt so they can start again)
+- **Unlock** a student who got locked: they continue where they stopped, with their answers kept, their departure count back to zero and a fresh timer on the current question
+- **Reset** one student to wipe their attempt completely so they start again (they get a new random order and new numbers)
 
 ### 6. Review the results
 
@@ -114,7 +115,7 @@ Tap a student's name to see details and their activity log. Then mark them **Cle
 
 **Item analysis** shows which questions the class missed and how long they took.
 
-Click **Download Excel (.xlsx)** for a workbook with results, every answer, flags, item analysis and a full activity log.
+Click **Download Excel (.xlsx)** for a workbook with results, every answer, flags, item analysis and a full activity log. If your connection can't load the Excel library, you get a CSV of the results table instead.
 
 ### 7. Running the same exam again
 
@@ -206,7 +207,7 @@ Answer formulas are forgiving: `0.5*a*t^2`, `0.5at^2`, `F = m a`, `2(x+1)`, `sqr
 ## Questions and answers (FAQ)
 
 **A student says the exam is locked.**
-They left the exam more times than you allowed. Check their activity log. If it was a genuine accident, use **Reset** on their row so they can start again. They'll get a fresh random order and fresh numbers.
+They left the exam more times than you allowed. Check their activity log. If it was a genuine accident (a refresh on a weak connection, say), press **Unlock** on their row and they carry on with their answers kept. Use **Reset** only if you want them to start from scratch, because they'll then see new random numbers and a new question order.
 
 **A student sees "This ID already started the exam on another device."**
 Ohmest remembers each attempt in the browser it started in. If they switched browsers or cleared their data mid-exam, use **Reset** for that student.
@@ -283,7 +284,7 @@ Edit a file on GitHub (or upload a new version) and commit. Vercel redeploys on 
 | "Page not found" on `/student-login` | `vercel.json` isn't at the top level of the repository. Move it there. |
 | The page loads but nothing works | Press F12, open the **Network** tab and click the `/api` request. Its error message says what's missing. |
 | "Too many attempts" | A built-in limit on sign-ins and codes. Wait a few minutes. |
-| Icons appear as words, or Excel download does nothing | The page couldn't load fonts or the Excel library from the internet. Check the connection and refresh. |
+| Icons are missing, or the Excel download gives a CSV | The page couldn't load the icon font or the Excel library from the internet. Everything still works; check the connection and refresh if you want the icons or the .xlsx. |
 
 ### For developers: run it on your computer
 
@@ -313,6 +314,7 @@ There's no build step: the site is plain HTML in `public/`, with one serverless 
 
 **Good to know**
 
+- Each student page checks in with the server every 30 seconds (for announcements and timers), so a big class makes a lot of database requests. If you hit your free Upstash limit, move to a paid plan or spread sittings out.
 - Student IDs aren't verified. Anyone who has your school code could type any ID. Use a **Class list**, and keep an eye on the Results tab.
 - One attempt per student ID, and an attempt belongs to the browser it started in.
 - Questions are multiple choice or numeric. There's no partial credit, and no pictures in questions yet.

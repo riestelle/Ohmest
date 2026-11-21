@@ -117,7 +117,7 @@ const MathFmt = (() => {
   }
   /* question text: $...$ is always math; whitespace-free tokens such as x=y/z, v^2, a_1 are auto-detected */
   function rich(text) {
-    const s = String(text ?? ''), parts = s.split(/(\$(?!\s)[^$\n]*?[^\s$]\$|\$[^\s$]\$)/);
+    const s = String(text ?? ''), parts = s.split(/(\$(?!\s)[^$\n]*?[^\s$]\$(?!\w)|\$[^\s$]\$(?!\w))/);
     return parts.map(seg => {
       if (seg.length > 2 && seg[0] === '$' && seg[seg.length - 1] === '$') return html(seg.slice(1, -1));
       return seg.split(/(\s+)/).map(w => (/^\s*$/.test(w) ? esc(w) : tokenToMath(w))).join('');
