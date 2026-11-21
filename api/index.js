@@ -606,6 +606,12 @@ async function route(b, ip) {
       await r.set('k:' + ex.id, key);
       return { ok: 1 };
     }
+    case 'visibility': {   // what students may see afterwards: safe to change while the exam is open
+      const ex = await ownEx(b, await needUser(b)), x = b.settings || {};
+      const set = { ...(ex.set || {}), showScore: !!x.showScore, showReview: !!x.showReview, showKey: !!x.showKey, release: x.release === 'closed' ? 'closed' : 'finish' };
+      await r.set('e:' + ex.id, { ...ex, set });
+      return { ok: 1 };
+    }
     case 'preview': {
       await needUser(b);
       const { item, key } = cleanQ(b.q || {}, +b.i || 0);

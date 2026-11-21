@@ -56,7 +56,7 @@ function renderProf() {
  <button id="sv" onclick="saveExam()" ${st ? 'disabled' : ''} type="button"><span class="ms">save</span>Save</button>
  <button class="${st ? 'd' : 'g'}" onclick="setStatus(${st ? 0 : 1})" type="button"><span class="ms">${st ? 'lock' : 'play_arrow'}</span>${st ? 'Close exam' : 'Open to students'}</button></div>
  <div class="etabs">${T('q', 'quiz', 'Questions', qs.length)}${T('s', 'tune', 'Settings')}${T('r', 'insights', 'Results', tab === 'r' ? atts.length : null)}</div><div id="msg" class="mu"></div></div>`
-    + (tab === 'r' ? body : `<fieldset ${st ? 'disabled' : ''} style="border:0;padding:0;margin:0;min-width:0">${st ? '<div class="warn"><b>This exam is open</b>, so questions and settings are locked. Click “Close exam” to edit them.</div>' : ''}${body}</fieldset>`);
+    + (tab === 'r' ? body : `${st && tab === 's' ? visLive() : ''}<fieldset ${st ? 'disabled' : ''} style="border:0;padding:0;margin:0;min-width:0">${st ? '<div class="warn"><b>This exam is open</b>, so questions and settings are locked. Click “Close exam” to edit them.</div>' : ''}${body}</fieldset>`);
 }
 async function setTab(t) {
   tab = t; clearInterval(poll); window.scrollTo(0, 0);
@@ -68,6 +68,19 @@ async function setTab(t) {
 }
 async function loadRes() { try { const j = await A('results'); if (j.exam) cfg = j.exam; atts = j.atts; qstat = j.qs; } catch (e) { /* keep old */ } }
 
+/* results visibility: can be changed while the exam is open */
+const visLive = () => `<section class="sec"><h3><span class="ms">visibility</span>Student results (editable while the exam is open)</h3><p class="sub">Saves right away. Students see the change next time they open their exam list.</p>`
+  + row('Release results', '“Right after they finish” shows results at once. “When I close the exam” waits.', `<select id="v-rel"><option value="finish" ${SET.release !== 'closed' ? 'selected' : ''}>Right after they finish</option><option value="closed" ${SET.release === 'closed' ? 'selected' : ''}>When I close the exam</option></select>`)
+  + row('Show their score', 'Total points out of the maximum.', `<label class="sw"><input type="checkbox" id="v-sc" ${SET.showScore ? 'checked' : ''} aria-label="Show score"><i></i></label>`)
+  + row('Let them review their answers', 'Each question with what they answered and whether it was right.', `<label class="sw"><input type="checkbox" id="v-rv" ${SET.showReview ? 'checked' : ''} aria-label="Review answers"><i></i></label>`)
+  + row('Also show the correct answers', 'Only applies when reviewing is on.', `<label class="sw"><input type="checkbox" id="v-ky" ${SET.showKey ? 'checked' : ''} aria-label="Show correct answers"><i></i></label>`)
+  + `<div class="srow"><button type="button" onclick="saveVis(this)"><span class="ms">save</span>Save results visibility</button></div></section>`;
+async function saveVis(b) {
+  const x = { release: $('v-rel').value, showScore: $('v-sc').checked, showReview: $('v-rv').checked, showKey: $('v-ky').checked };
+  b.disabled = true;
+  try { await A('visibility', { settings: x }); Object.assign(SET, x); if (cfg) cfg.set = { ...(cfg.set || {}), ...x }; toast('Saved. Students can see it now.'); renderProf(); }
+  catch (e) { alert(e.message); b.disabled = false; }
+}
 /* ---------------- settings ---------------- */
 const dt = ms => ms ? new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
 document.addEventListener('input', e => { if (e.target.id === 'ttl') title = e.target.value; });
