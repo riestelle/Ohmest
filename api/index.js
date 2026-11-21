@@ -803,12 +803,12 @@ async function route(b, ip) {
       await throttle('claim', ip, 12, 900);
       const sc = await r.get('s:' + str(b.code, 10).toUpperCase());
       if (!sc) throw err('School not found. Sign in again.', 404);
-      const sid = str(b.sid, 40), rcpt = str(b.receipt, 30).toUpperCase().replace(/\s+/g, '');
+      const sid = str(b.sid, 40), nrm = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1'), rcpt = nrm(str(b.receipt, 30));   // O/0 and I/L/1 look alike, so treat them the same
       if (!sid || !rcpt) throw err('Enter your student ID and receipt code.');
       const tokens = {};
       for (const id of ((await r.smembers('se:' + sc.code)) || [])) {
         const a = await r.get(aKey(id, sid));
-        if (a && a.status !== 'in_progress' && rc(a) === rcpt) tokens[id] = a.token;
+        if (a && a.status !== 'in_progress' && nrm(rc(a)) === rcpt) tokens[id] = a.token;
       }
       if (!Object.keys(tokens).length) throw err('No finished exam matches that student ID and receipt code. Check for typos.', 404);
       return { tokens };
