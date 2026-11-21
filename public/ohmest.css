@@ -170,3 +170,11 @@ select{width:auto}
 .recap .rw{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--mu)}
 .recap .rw b{color:var(--tx);font:600 14px 'JetBrains Mono',ui-monospace,monospace}
 @media(max-width:640px){.tiles{grid-template-columns:1fr}.qcard{padding:20px}.xcard{padding:20px 16px 20px 22px}}
+
+/* editor sticky bar */
+.ed .ebar{position:sticky;top:64px;z-index:30;background:var(--bg);padding:12px 0 0;border-bottom:1px solid var(--bd)}
+.ed .ebar .tabs{margin:10px 0 0}
+.ed .ttl{flex:1 1 240px;min-width:160px;width:auto;font-size:20px;font-weight:700;border-color:transparent;background:transparent;padding:6px 8px}
+.ed .ttl:hover,.ed .ttl:focus{border-color:var(--bd);background:var(--sf)}
+.ed #msg{padding:8px 0 6px}.ed #msg:empty{display:none}
+.ed .ebar+*{margin-top:16px}

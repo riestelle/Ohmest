@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><meta name="robots" content="noindex"><title>Exam editor · Ohmest</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script></head><body>
 <div id="hdr"></div>
-<main class="wrap ed"><a href="prof.html" class="mu" style="text-decoration:none"><span class="ms" style="font-size:16px">arrow_back</span> Dashboard</a><div id="app"><p class="mu">Loading…</p></div></main>
+<main class="wrap ed"><div id="app"><p class="mu">Loading…</p></div></main>
 <div id="ftr"></div>
 <script src="common.js"></script>
 <script>
@@ -30,20 +30,32 @@ async function profInit() {
     qs = cfg && cfg.questions.length ? cfg.questions.map((q, i) => fromSrv(q, j.key[i])) : [blank()];
     try { SCH = (await api('me')).school; } catch (e) { /* header only */ }
     chrome({ nav: [['Dashboard', 'prof.html', 'd'], ['Exam editor', '#', 'e']], active: 'e', who: { name: (JSON.parse(ls.get('oh_me') || '{}').user || {}).name || 'Professor', sub: SCH ? SCH.name : '' }, logout: 'index.html' });
+    tab = cfg && cfg.questions.length ? 'q' : 's'; dirty = !(cfg && cfg.questions.length);
     const h = location.hash.slice(1); if (h === 'r' || h === 's') return setTab(h);
     renderProf();
   } catch (e) {
     if (!profFail(e)) app.innerHTML = '<div class="alert err">' + esc(e.message) + ' <a href="prof.html">Back to dashboard</a></div>';
   }
 }
+let dirty = false;
+const dirtyTxt = () => dirty ? '<span class="bad">● Unsaved changes</span>' : '<span class="ok">✔ All changes saved</span>';
+const setDirty = v => { dirty = v; const d = $('dirty'); if (d) d.innerHTML = dirtyTxt(); };
+const touch = () => { setDirty(true); renderProf(); };
+function addQ() { qs.push(blank()); touch(); const el = $('q' + (qs.length - 1)); if (el) el.scrollIntoView({ block: 'center' }); }
 function renderProf() {
   const n = cfg?.questions.length || 0, st = cfg?.status === 'open';
   const T = (k, t) => `<button class="${tab === k ? '' : 'g'}" onclick="setTab('${k}')">${t}</button>`;
-  app.innerHTML = `<h1 style="font-size:30px;font-weight:700">${esc(title || 'New exam')}</h1><div class="mu" style="margin-top:4px">${n} question${n === 1 ? '' : 's'} saved · exam is <b class="${st ? 'ok' : 'bad'}">${st ? 'OPEN' : 'CLOSED'}</b></div>
- <div class="tabs">${T('q', 'Questions')}${T('s', 'Settings')}${T('r', 'Results')}</div>` + (tab === 'q' ? profQ() : tab === 's' ? profS() : profR());
+  const body = tab === 'q' ? profQ() : tab === 's' ? profS() : profR();
+  app.innerHTML = `<div class="ebar"><div class="row">
+ <input id="ttl" class="ttl" value="${esc(title)}" placeholder="Exam title" aria-label="Exam title" ${st ? 'disabled' : ''}>
+ <span class="badge ${st ? 'open' : ''}">${st ? 'OPEN' : n ? 'CLOSED' : 'DRAFT'}</span><span class="mu" id="dirty">${dirtyTxt()}</span><span style="flex:1"></span>
+ <button id="sv" onclick="saveExam()" ${st ? 'disabled' : ''}>Save</button>
+ <button class="${st ? 'g' : ''}" onclick="setStatus(${st ? 0 : 1})">${st ? 'Close exam' : 'Open to students'}</button></div>
+ <div class="tabs">${T('s', '1 · Settings')}${T('q', '2 · Questions')}${T('r', '3 · Results')}</div><div id="msg" class="mu"></div></div>`
+    + (tab === 'r' ? body : `<fieldset ${st ? 'disabled' : ''} style="border:0;padding:0;margin:0;min-width:0">${st ? '<div class="warn">The exam is open, so settings and questions are locked. Close the exam to edit them.</div>' : ''}${body}</fieldset>`);
 }
 async function setTab(t) {
-  tab = t; clearInterval(poll);
+  tab = t; clearInterval(poll); window.scrollTo(0, 0);
   if (t === 'r') {
     await loadRes();
     poll = setInterval(async () => { await loadRes(); const a = document.activeElement; if (tab === 'r' && !(a && (a.id === 'an' || a.tagName === 'INPUT')) && !document.querySelector('details[open]')) renderProf(); }, 10000);
@@ -60,8 +72,7 @@ function setSet(e) { const t = e.target, k = t.dataset && t.dataset.s; if (!k) r
 document.addEventListener('input', setSet); document.addEventListener('change', setSet);
 function profS() {
   const st = cfg?.status === 'open';
-  return `<div class="card"><label class="mu">Exam title</label><input id="ttl" value="${esc(title)}" placeholder="e.g. Physics 101 – Midterm">
- <label class="mu">Lock a student when they leave the exam this many times (0 = never lock)</label><input type="number" min="0" data-s="maxLeaves" value="${SET.maxLeaves}"></div>
+  return `<div class="card"><label class="mu">Lock a student when they leave the exam this many times (0 = never lock)</label><input type="number" min="0" data-s="maxLeaves" value="${SET.maxLeaves}"></div>
  <div class="card"><b>Exam settings</b>
  ${tgl('shuffleQ', 'Shuffle question order per student')}${tgl('shuffleC', 'Shuffle answer choices per student')}${tgl('copyBlock', 'Block copy, paste and right-click')}${tgl('fsTrack', 'Ask for fullscreen where the device supports it (leaving it counts as leaving)')}${tgl('showScore', 'Show each student their score when they finish')}${tgl('calc', 'Calculator &amp; formula sheet for students')}${tgl('units', 'Check units on numeric answers')}${tgl('multi', 'Accept multiple answers on fixed numeric questions')}
  <label class="mu">Negative marking: % of a question’s points deducted for a wrong answer (0 = off)</label><input type="number" min="0" max="100" data-s="neg" value="${SET.neg}">
@@ -77,7 +88,7 @@ function profS() {
  <label class="mu">Web app URL (ends in /exec)</label><input data-s="sheetUrl" value="${esc(SET.sheetUrl)}" placeholder="https://script.google.com/macros/s/.../exec">
  <label class="mu">Sheet key</label><input data-s="sheetKey" value="${esc(SET.sheetKey)}">
  <div class="row"><button class="g" onclick="sheetAct('sheetTest')">Test connection</button><button class="g" onclick="sheetAct('sheetPush')">Send all results now</button></div><div id="shmsg" class="mu"></div></div>
- ${saveBar(st)}`;
+ <div class="row" style="margin-top:14px"><button onclick="setTab('q')">Next: Questions →</button></div>${saveBar(st)}`;
 }
 async function sheetAct(a) {
   const m = $('shmsg'); m.textContent = 'Working…';
@@ -89,8 +100,8 @@ async function sheetAct(a) {
 const numRow = (q, i) => `<label class="mu">Accepted answer(s), comma-separated (extra ones count only if “Accept multiple answers” is on)</label><input data-i="${i}" data-f="v" value="${esc(q.v)}" placeholder="9.8, 9.81, 10">`;
 const tolRow = (q, i) => `<div class="row mu">Tolerance ± <input class="sm" type="number" min="0" step="0.1" data-i="${i}" data-f="tol" value="${q.tol}"> % &nbsp; Unit <input class="md" data-i="${i}" data-f="u" value="${esc(q.u)}" placeholder="N"></div>`;
 const randRow = (q, i) => `<div class="mu" style="margin-top:6px">Write the numbers in the question as <code>{name}</code>, for example “mass {m} kg”. Each student gets different values.</div>
- ${q.vars.map((v, j) => `<div class="vr"><input data-i="${i}" data-j="${j}" data-f="vn" value="${esc(v.n)}" placeholder="name" style="width:70px"> <span class="mu">from</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vmin" value="${esc(v.min)}"> <span class="mu">to</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vmax" value="${esc(v.max)}"> <span class="mu">step</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vstep" value="${esc(v.step)}"> <button class="d s" onclick="qs[${i}].vars.splice(${j},1);renderProf()">×</button></div>`).join('')}
- <button class="g s" onclick="qs[${i}].vars.push({n:'',min:1,max:10,step:1});renderProf()">+ Add variable</button>
+ ${q.vars.map((v, j) => `<div class="vr"><input data-i="${i}" data-j="${j}" data-f="vn" value="${esc(v.n)}" placeholder="name" style="width:70px"> <span class="mu">from</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vmin" value="${esc(v.min)}"> <span class="mu">to</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vmax" value="${esc(v.max)}"> <span class="mu">step</span> <input type="number" step="any" data-i="${i}" data-j="${j}" data-f="vstep" value="${esc(v.step)}"> <button class="d s" onclick="qs[${i}].vars.splice(${j},1);touch()">×</button></div>`).join('')}
+ <button class="g s" onclick="qs[${i}].vars.push({n:'',min:1,max:10,step:1});touch()">+ Add variable</button>
  <label class="mu">Answer formula (use + - * / ^ ( ), your variable names, pi, and sqrt, sin, cos, tan [degrees], ln, log, abs)</label><input data-i="${i}" data-f="fm" value="${esc(q.f)}" placeholder="0.5*a*t^2">
  ${tolRow(q, i)}<div class="row"><button class="g s" onclick="prev(${i})">Preview a sample student</button></div><div class="mu" id="pv${i}"></div>`;
 const fuRow = (q, i) => `<label class="ch mu" style="margin-top:8px"><input type="checkbox" data-i="${i}" data-f="fuOn" ${q.fu ? 'checked' : ''}> Add a follow-up question (used only if “Follow-up questions” in Settings is above 0)</label>`
@@ -99,17 +110,16 @@ const fuRow = (q, i) => `<label class="ch mu" style="margin-top:8px"><input type
  <div class="row mu">Time: <input class="sm" type="number" min="5" data-i="${i}" data-f="ft" value="${q.fu.t}"> seconds</div></div>` : '');
 function profQ() {
   const st = cfg?.status === 'open';
-  return (st ? '<div class="warn">The exam is open, so questions are locked. Close the exam to edit them.</div>' : '') + qs.map((q, i) => `<div class="card"><b>Question ${i + 1}</b> <select data-i="${i}" data-f="type"><option value="mc" ${q.type !== 'num' ? 'selected' : ''}>Multiple choice</option><option value="num" ${q.type === 'num' ? 'selected' : ''}>Numeric answer</option></select> <span class="mu">Points</span> <input class="sm" type="number" min="0" step="0.5" data-i="${i}" data-f="pts" value="${q.pts}">
+  return '<div class="row" style="margin:12px 0"><button class="g" onclick="addQ()">+ Add question</button><span class="mu">' + qs.length + ' question' + (qs.length === 1 ? '' : 's') + '</span></div>' + qs.map((q, i) => `<div class="card" id="q${i}"><b>Question ${i + 1}</b> <select data-i="${i}" data-f="type"><option value="mc" ${q.type !== 'num' ? 'selected' : ''}>Multiple choice</option><option value="num" ${q.type === 'num' ? 'selected' : ''}>Numeric answer</option></select> <span class="mu">Points</span> <input class="sm" type="number" min="0" step="0.5" data-i="${i}" data-f="pts" value="${q.pts}">
   ${q.type === 'num' ? `<select data-i="${i}" data-f="mode"><option value="fixed" ${q.mode !== 'rand' ? 'selected' : ''}>Same numbers for everyone</option><option value="rand" ${q.mode === 'rand' ? 'selected' : ''}>Different numbers per student</option></select>` : ''}
   <textarea data-i="${i}" data-f="q" placeholder="Type the question">${esc(q.q)}</textarea>
   ${q.type === 'num' ? (q.mode === 'rand' ? randRow(q, i) : numRow(q, i) + tolRow(q, i)) : q.c.map((c, j) => `<div class="ch"><input type="radio" name="a${i}" ${q.a === j ? 'checked' : ''} data-i="${i}" data-f="a" value="${j}" title="Correct answer"><input data-i="${i}" data-f="c${j}" value="${esc(c)}" placeholder="Choice ${L(j)}"></div>`).join('')}
   ${fuRow(q, i)}
-  <div class="row mu">${q.type === 'num' ? '' : 'Correct = selected circle · '}Time: <input class="sm" type="number" min="5" data-i="${i}" data-f="t" value="${q.t}"> seconds <button class="d" onclick="qs.splice(${i},1);renderProf()">Delete</button></div></div>`).join('')
-    + `<div class="row"><button class="g" onclick="qs.push(blank());renderProf()">+ Add question</button><button class="g" onclick="$('imp').hidden=!$('imp').hidden">Paste many</button></div>
+  <div class="row mu">${q.type === 'num' ? '' : 'Correct = selected circle · '}Time: <input class="sm" type="number" min="5" data-i="${i}" data-f="t" value="${q.t}"> seconds <button class="d" onclick="qs.splice(${i},1);touch()">Delete</button></div></div>`).join('')
+    + `<div class="row"><button class="g" onclick="addQ()">+ Add question</button><button class="g" onclick="$('imp').hidden=!$('imp').hidden">Paste many</button></div>
  <div id="imp" class="card" hidden><div class="mu">Multiple-choice only. One block per question, blank line between. Example:<br>What is the SI unit of force?<br>A) Joule<br>B) Newton<br>C) Watt<br>D) Pascal<br>Answer: B<br>Time: 20</div><textarea id="imt" style="min-height:140px"></textarea><button onclick="importQ()">Import</button></div>` + saveBar(st);
 }
-const saveBar = st => `<div class="row" style="margin-top:14px"><button onclick="saveExam()" ${st ? 'disabled' : ''}>Save exam</button><button class="g" onclick="setStatus(${st ? 0 : 1})">${st ? 'Close exam' : 'Open exam to students'}</button></div><div id="msg" class="mu"></div>
- <p class="mu">Students sign in at <b>${esc(location.origin)}/student-login</b> with school code <b>${esc(SCH ? SCH.code : '')}</b>. They never receive the answer key or the formulas.</p>`;
+const saveBar = st => `<p class="mu" style="margin-top:14px">Students sign in at <b>${esc(location.origin)}/student-login</b> with school code <b>${esc(SCH ? SCH.code : '')}</b>. They never receive the answer key or the formulas.</p>`;
 document.addEventListener('input', e => {
   const d = e.target.dataset; if (!d || d.i === undefined) return; const q = qs[+d.i], f = d.f, v = e.target.value;
   if (f === 'q') q.q = v; else if (f === 't') q.t = +v || 30; else if (f === 'pts') q.pts = +v; else if (f === 'v') q.v = v; else if (f === 'tol') q.tol = +v; else if (f === 'u') q.u = v; else if (f === 'fm') q.f = v;
@@ -138,20 +148,22 @@ function importQ() {
     ls.forEach(l => { let m; if (m = l.match(/^([A-Ea-e])[).]\s*(.+)/)) q.c.push(m[2]); else if (m = l.match(/^answer\s*:\s*([A-Ea-e])/i)) ans = m[1].toUpperCase(); else if (m = l.match(/^time\s*:\s*(\d+)/i)) q.t = +m[1]; else if (!q.q) q.q = l.replace(/^\d+[).]\s*/, ''); });
     q.a = Math.max(0, ans ? ans.charCodeAt(0) - 65 : 0); return q;
   }).filter(q => q.q && q.c.length >= 2);
-  qs = qs.filter(q => q.q || q.c.some(Boolean)).concat(add); renderProf(); $('msg').textContent = add.length + ' question(s) imported. Remember to Save.';
+  qs = qs.filter(q => q.q || q.c.some(Boolean)).concat(add); setDirty(true); renderProf(); $('msg').textContent = add.length + ' question(s) imported. Remember to Save.';
 }
 async function saveExam() {
   const ttl = $('ttl'); if (ttl) title = ttl.value;
-  const roster = Array.isArray(SET.roster) ? SET.roster : String(SET.roster || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const roster = Array.isArray(SET.roster) ? SET.roster : String(SET.roster || '').split('\\n').map(x => x.trim()).filter(Boolean);
   try {
     await A('save', { title, maxLeaves: +SET.maxLeaves || 0, settings: { ...SET, roster }, questions: payload() });
-    const j = await A('load'); cfg = j.exam; SET = { ...DEF, ...(cfg.set || {}), maxLeaves: cfg.maxLeaves }; renderProf(); $('msg').innerHTML = '<span class="ok">Saved ✔</span> The exam is closed until you open it.';
-  } catch (e) { $('msg').innerHTML = '<span class="bad">Could not save: ' + esc(e.message) + '</span>'; }
+    const j = await A('load'); cfg = j.exam; SET = { ...DEF, ...(cfg.set || {}), maxLeaves: cfg.maxLeaves }; title = cfg.title; dirty = false; renderProf();
+    $('msg').innerHTML = '<span class="ok">Saved ✔</span>'; return true;
+  } catch (e) { $('msg').innerHTML = '<span class="bad">Could not save: ' + esc(e.message) + '</span>'; return false; }
 }
 async function setStatus(o) {
   try {
+    if (o && (dirty || !cfg || !cfg.questions.length) && !(await saveExam())) return;
     const j = await A('status', { open: o }); cfg.status = o ? 'open' : 'closed'; renderProf();
-    if (o && j.old > 0) alert(j.old + ' attempt(s) from before already exist. Those students will see “already submitted”. If this is a new exam, close it and use “Clear all attempts” in Results first.');
+    if (o) { toast('Saved and opened. Students can start now.'); if (j.old > 0) alert(j.old + ' attempt(s) from before already exist. Those students will see “already submitted”. If this is a new sitting, close the exam and use “Clear all attempts” in Results first.'); }
   } catch (e) { alert(e.message); }
 }
 
@@ -222,5 +234,8 @@ function exportX() {
   [['Results', res], ['Answers', ans], ['Flags', flg], ['Item analysis', item], ['Activity log', log]].forEach(([n, d]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(d), n));
   XLSX.writeFile(wb, (cfg.title || 'exam').replace(/[^\w\- ]/g, '') + ' results.xlsx');
 }
+const markDirty = e => { const t = e.target; if (tab === 'r' || !t.closest || !t.closest('#app') || ['an', 'imt'].includes(t.id) || t.type === 'file') return; setDirty(true); };
+document.addEventListener('input', markDirty, true); document.addEventListener('change', markDirty, true);
+addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 profInit();
 </script></body></html>

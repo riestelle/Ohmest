@@ -1,15 +1,15 @@
 /**
- * ProctorQuiz -> Google Sheets receiver.
+ * Ohmest -> Google Sheets receiver.
  * Paste this into Extensions > Apps Script of your Google Sheet, change KEY, then
  * Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone.
- * Copy the web app URL (ends in /exec) into ProctorQuiz > Settings > Google Sheets,
+ * Copy the web app URL (ends in /exec) into Ohmest > Settings > Google Sheets,
  * and type the same KEY into the "Sheet key" box.
  */
-const KEY = 'change-this-to-your-own-secret';
+const KEY = 'km-em1234-KMM234';
 const TAB = 'Results';
 const HEAD = ['Student ID', 'Name', 'Status', 'Score', 'Out of', 'Percent', 'Times left exam', 'Seconds away', 'Integrity risk', 'Flags', 'Professor review', 'Receipt', 'Finished', 'Work photos', 'Last updated'];
 
-function doGet() { return out({ ok: true, msg: 'ProctorQuiz sheet receiver is running' }); }
+function doGet() { return out({ ok: true, msg: 'Ohmest sheet receiver is running' }); }
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
