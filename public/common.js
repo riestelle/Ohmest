@@ -5,8 +5,11 @@ const L = i => String.fromCharCode(65 + i);
 const ls = { get: (k, s = localStorage) => { try { return s.getItem(k) || ''; } catch (e) { return ''; } }, set: (k, v, s = localStorage) => { try { s.setItem(k, v); } catch (e) { /* storage blocked */ } }, del: (k, s = localStorage) => { try { s.removeItem(k); } catch (e) { /* ignore */ } } };
 let TK = ls.get('oh_tk');                                   // professor session token
 const student = () => { try { return JSON.parse(ls.get('oh_stu', sessionStorage) || 'null'); } catch (e) { return null; } };
-const attempts = () => { try { return JSON.parse(ls.get('oh_att', sessionStorage) || '{}') || {}; } catch (e) { return {}; } };
-const saveAttempt = (eid, token) => ls.set('oh_att', JSON.stringify({ ...attempts(), [eid]: token }), sessionStorage);
+/* attempt tokens live in localStorage, one bucket per school code + student ID, so finished exams stay in the student's list after the tab is closed */
+const attKey = () => { const w = student(); return 'oh_att:' + (w ? w.code + ':' + String(w.sid).toLowerCase() : ''); };
+const attempts = () => { try { return JSON.parse(ls.get(attKey()) || '{}') || {}; } catch (e) { return {}; } };
+const saveAttempt = (eid, token) => ls.set(attKey(), JSON.stringify({ ...attempts(), [eid]: token }));
+
 const signOut = () => { TK = ''; ls.del('oh_tk'); ls.del('oh_me'); ls.del('oh_stu', sessionStorage); ls.del('oh_att', sessionStorage); };
 
 async function api(action, d = {}) {
