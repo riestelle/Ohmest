@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head><body>
-<div id="hd"><span id="sch">ProctorQuiz</span> · Professor</div>
+<div id="hd"><a href="profDashboard.html" style="float:left;color:#fff;text-decoration:none">&larr; Dashboard</a><span id="sch">ProctorQuiz</span> · Professor</div>
 <div id="app" class="wide"><p class="mu">Loading…</p></div>
 <script src="/common.js"></script>
 <script>
@@ -25,14 +25,16 @@ const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.prot
 const varTxt = v => Object.entries(v || {}).map(([k, x]) => k + ' = ' + x).join(', ');
 
 async function profInit() {
-  if (!TK) return login();
+  if (!TK) { location.replace('prof_login_reg.html'); return; }
   try {
     const j = await api('load'); cfg = j.exam;
     SET = { ...DEF, ...(cfg?.set || {}), maxLeaves: cfg?.maxLeaves ?? 3 }; title = cfg?.title || '';
     qs = cfg ? cfg.questions.map((q, i) => fromSrv(q, j.key[i])) : [blank()];
-    setHeader(SET.school); renderProf();
+    setHeader(SET.school);
+    const h = location.hash.slice(1); if (h === 'r' || h === 's') return setTab(h);
+    renderProf();
   } catch (e) {
-    if (e.status === 401) { TK = ''; try { sessionStorage.removeItem('tk'); } catch (x) { /* ignore */ } login(); }
+    if (e.status === 401) { TK = ''; try { sessionStorage.removeItem('tk'); } catch (x) { /* ignore */ } location.replace('prof_login_reg.html'); }
     else app.innerHTML = '<div class="card">' + esc(e.message) + '</div>';
   }
 }
@@ -53,7 +55,7 @@ async function setTab(t) {
   tab = t; clearInterval(poll);
   if (t === 'r') {
     await loadRes();
-    poll = setInterval(async () => { await loadRes(); const a = document.activeElement; if (tab === 'r' && !(a && (a.id === 'an' || a.tagName === 'INPUT'))) renderProf(); }, 10000);
+    poll = setInterval(async () => { await loadRes(); const a = document.activeElement; if (tab === 'r' && !(a && (a.id === 'an' || a.tagName === 'INPUT')) && !document.querySelector('details[open]')) renderProf(); }, 10000);
   }
   renderProf();
 }
@@ -62,6 +64,7 @@ async function loadRes() { try { const j = await api('results'); if (j.exam) cfg
 /* ---------------- settings ---------------- */
 const tgl = (k, t) => `<label class="ch" style="margin:8px 0"><input type="checkbox" data-s="${k}" ${SET[k] ? 'checked' : ''}> ${t}</label>`;
 const dt = ms => ms ? new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+document.addEventListener('input', e => { if (e.target.id === 'ttl') title = e.target.value; });
 function setSet(e) { const t = e.target, k = t.dataset && t.dataset.s; if (!k) return; SET[k] = t.type === 'checkbox' ? t.checked : t.type === 'datetime-local' ? (t.value ? new Date(t.value).getTime() : 0) : t.type === 'number' ? +t.value : t.value; }
 document.addEventListener('input', setSet); document.addEventListener('change', setSet);
 function profS() {
@@ -75,7 +78,7 @@ function profS() {
  <label class="mu">Extra formulas or notes for the formula sheet (optional)</label><textarea data-s="sheet">${esc(SET.sheet)}</textarea>
  <label class="mu">Opens at (optional)</label><input type="datetime-local" data-s="opens" value="${dt(SET.opens)}">
  <label class="mu">Closes at (optional)</label><input type="datetime-local" data-s="closes" value="${dt(SET.closes)}">
- <label class="mu">Class list: only these student IDs can enter (one per line; leave empty to allow anyone)</label><textarea data-s="roster">${esc((Array.isArray(SET.roster) ? SET.roster : []).join('\n'))}</textarea></div>
+ <label class="mu">Class list: only these student IDs can enter (one per line; leave empty to allow anyone)</label><textarea data-s="roster">${esc(Array.isArray(SET.roster) ? SET.roster.join('\n') : String(SET.roster || ''))}</textarea></div>
  <div class="card"><b>Integrity checks</b>
  <label class="mu">Follow-up questions per student (0 to 3). Asked after the exam, only about questions the student got right, using their own numbers. A student who got it right but fails the follow-up is flagged.</label><input type="number" min="0" max="3" data-s="followUps" value="${SET.followUps}">
  <label class="mu">Handwritten work spot-check: how many of each student’s problems to ask a photo for (0 to 3, 0 = off)</label><input type="number" min="0" max="3" data-s="spot" value="${SET.spot}">
@@ -170,7 +173,7 @@ function profR() {
   const rows = [...atts].sort((a, b) => b.pts - a.pts || (a.name || '').localeCompare(b.name || '')).map(a => {
     const sid = esc(a.sid);
     const det = open.has(a.sid) ? `<tr><td colspan="8" style="white-space:normal;background:var(--bg)">${detail(a)}</td></tr>` : '';
-    return `<tr><td data-act="tg" data-sid="${sid}" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${sid}</span></td><td>${a.status === 'in_progress' ? 'Q' + esc(a.prog) : a.status === 'locked' ? '<span class="bad">Locked</span>' : 'Done'}</td><td>${a.score}/${a.of}</td><td><span class="risk r-${a.risk}">${a.risk}</span>${a.review ? '<br><span class="mu">' + (a.review === 'cleared' ? 'Cleared' : 'Needs oral check') + '</span>' : ''}</td><td class="${a.leaves ? 'bad' : ''}">${a.leaves}×</td><td>${a.away}s</td><td>${a.workReq.length ? a.work.length + '/' + a.workReq.length : '—'}</td><td><button class="d" data-act="reset" data-sid="${sid}">Reset</button></td></tr>${det}`;
+    return `<tr><td data-act="tg" data-sid="${sid}" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${sid}</span></td><td>${a.status === 'in_progress' ? 'In progress ' + esc(a.prog) : a.status === 'locked' ? '<span class="bad">Locked</span>' : 'Done'}</td><td>${a.score}/${a.of}</td><td><span class="risk r-${a.risk}">${a.risk}</span>${a.review ? '<br><span class="mu">' + (a.review === 'cleared' ? 'Cleared' : 'Needs oral check') + '</span>' : ''}</td><td class="${a.leaves ? 'bad' : ''}">${a.leaves}×</td><td>${a.away}s</td><td>${a.workReq.length ? a.work.length + '/' + a.workReq.length : '—'}</td><td><button class="d" data-act="reset" data-sid="${sid}">Reset</button></td></tr>${det}`;
   }).join('');
   const items = qstat.map(q => `<tr><td>Q${q.n}</td><td style="white-space:normal;min-width:200px">${esc(q.q)}${q.rand ? ' <span class="mu">(random numbers)</span>' : ''}</td><td style="white-space:normal">${esc(q.key)}</td><td>${q.pct == null ? '' : Math.round(q.pct * 100) + '%'}</td><td>${q.avg == null ? '' : Math.round(q.avg / 100) / 10 + 's'}</td><td>${q.t}s</td></tr>`).join('');
   return `<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div>

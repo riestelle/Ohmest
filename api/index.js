@@ -276,7 +276,7 @@ async function V(a, ex) {
   const K = (it && it.f) || (a.status !== 'in_progress' && o.showScore) ? (await r.get('key')) || [] : [];
   const v = view(a, ex, K);
   if (v.status !== 'in_progress') {
-    v.receipt = rc(a);
+    v.receipt = rc(a); v.finished = a.finished || 0;
     if (o.showScore) { v.score = score(a, K, ex); v.of = maxPts(ex); }
   } else v.ann = await r.get('ann');
   return v;
@@ -456,6 +456,12 @@ async function route(b, ip) {
       if (!raw.length) throw err('Add at least one question.');
       const qs = [], key = [];
       raw.forEach((q, i) => { const c = cleanQ(q, i); qs.push(c.item); key.push(c.key); });
+      if (old && ((await r.scard('atts')) || 0) > 0) {
+        const oldKey = (await r.get('key')) || [];
+        if (JSON.stringify(old.questions) !== JSON.stringify(qs) || JSON.stringify(oldKey) !== JSON.stringify(key)) {
+          throw err('Students already have attempts. Export the results, then use \"Clear all attempts\" in Results before changing questions. (Settings alone can still be saved.)');
+        }
+      }
       await r.set('exam', { title: String(b.title || 'Exam'), maxLeaves: Math.max(0, Math.floor(+b.maxLeaves || 0)), status: 'closed', set: mkSet(b.settings), questions: qs });
       await r.set('key', key);
       return { ok: 1 };
@@ -546,7 +552,7 @@ async function route(b, ip) {
       if (!ex) return { open: false, school: DEFS.school };
       const o = opt(ex);
       return {
-        open: isOpen(ex), opens: o.opens, closes: o.closes, title: ex.title, school: o.school, n: ex.questions.length,
+        open: isOpen(ex), status: ex.status, now: Date.now(), opens: o.opens, closes: o.closes, title: ex.title, school: o.school, n: ex.questions.length,
         sec: ex.questions.reduce((s, q) => s + q.t, 0), maxLeaves: ex.maxLeaves, fu: o.followUps, spot: o.spot, spotMins: o.spotMins,
         s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet },
       };
@@ -582,7 +588,9 @@ async function route(b, ip) {
     }
     case 'state': {
       const { a, ex } = await loadAtt(b);
-      await adv(a, ex); await put(a, ex);
+      const before = JSON.stringify(a);
+      await adv(a, ex);
+      if (JSON.stringify(a) !== before) await put(a, ex);
       return { view: await V(a, ex) };
     }
     case 'answer': {

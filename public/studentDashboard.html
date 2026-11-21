@@ -11,14 +11,14 @@
 <link href="stitch.css" rel="stylesheet">
 </head>
 <body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col">
-<header class="fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-surface-variant"><div class="h-16 max-w-7xl mx-auto px-margin flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-bold text-label-md tracking-wider">PQ</div><span class="font-bold text-headline-sm text-on-surface tracking-tight">ProctorQuiz</span></div><nav class="hidden md:flex items-center gap-space-lg h-16" data-active-classes="text-primary border-b-2 border-primary font-body-md-medium"><a aria-current="page" class="h-full flex items-center transition-colors px-space-xs text-primary border-b-2 border-primary font-body-md-medium" data-path="dashboard" href="#">Dashboard</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface font-body-md text-body-md transition-colors px-space-xs" data-path="grades" href="#">Grade</a></nav></div><div class="flex items-center gap-space-md"><div class="relative group"><button aria-expanded="false" aria-label="Student profile menu" class="flex items-center gap-space-xs p-space-xs rounded-full hover:bg-surface-container-low transition-colors" type="button"><span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm" id="avatarInit">EV</span><span class="material-symbols-outlined text-on-surface-variant text-label-md group-hover:text-on-surface transition-transform group-hover:rotate-180">expand_more</span></button><div class="absolute right-0 top-full mt-space-xs w-60 bg-surface-container-lowest border border-surface-variant rounded-lg shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_20px_25px_-5px_rgba(0,0,0,0.05)] py-space-xs hidden group-hover:block group-focus-within:block z-50"><div class="px-space-md py-space-sm border-b border-surface-variant"><p class="font-label-md text-label-md text-on-surface leading-tight" id="menuName">Elena Vance</p><p class="font-label-sm text-label-sm text-on-surface-variant leading-tight" id="menuNo">Student No. 2024-00123</p></div><a class="flex items-center gap-space-sm px-space-md py-space-sm text-on-surface hover:bg-surface-container-low hover:text-on-surface transition-colors font-body-sm text-body-sm" data-path="profile" href="#"><span class="material-symbols-outlined text-label-md text-on-surface-variant">person</span>Profile</a><a class="flex items-center gap-space-sm px-space-md py-space-sm text-on-surface hover:bg-surface-container-low hover:text-on-surface transition-colors font-body-sm text-body-sm" data-path="settings" href="#"><span class="material-symbols-outlined text-label-md text-on-surface-variant">settings</span>Settings</a><div class="border-t border-surface-variant my-space-xs"></div><a class="flex items-center gap-space-sm px-space-md py-space-sm text-primary hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors font-body-sm-medium text-body-sm-medium" data-path="login" href="student login_reg.html"><span class="material-symbols-outlined text-label-md text-primary">logout</span>Log out</a></div></div></div></div></header>
+<header class="fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-surface-variant"><div class="h-16 max-w-7xl mx-auto px-margin flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-bold text-label-md tracking-wider">PQ</div><span class="font-bold text-headline-sm text-on-surface tracking-tight">ProctorQuiz</span></div><nav class="hidden md:flex items-center gap-space-lg h-16" data-active-classes="text-primary border-b-2 border-primary font-body-md-medium"><a aria-current="page" class="h-full flex items-center transition-colors px-space-xs text-primary border-b-2 border-primary font-body-md-medium" href="studentDashboard.html">Dashboard</a></nav></div><div class="flex items-center gap-space-md"><div class="relative group"><button aria-expanded="false" aria-label="Student profile menu" class="flex items-center gap-space-xs p-space-xs rounded-full hover:bg-surface-container-low transition-colors" type="button"><span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm" id="avatarInit">EV</span><span class="material-symbols-outlined text-on-surface-variant text-label-md group-hover:text-on-surface transition-transform group-hover:rotate-180">expand_more</span></button><div class="absolute right-0 top-full mt-space-xs w-60 bg-surface-container-lowest border border-surface-variant rounded-lg shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_20px_25px_-5px_rgba(0,0,0,0.05)] py-space-xs hidden group-hover:block group-focus-within:block z-50"><div class="px-space-md py-space-sm border-b border-surface-variant"><p class="font-label-md text-label-md text-on-surface leading-tight" id="menuName">Elena Vance</p><p class="font-label-sm text-label-sm text-on-surface-variant leading-tight" id="menuNo">Student No. 2024-00123</p></div><a class="flex items-center gap-space-sm px-space-md py-space-sm text-primary hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors font-body-sm-medium text-body-sm-medium" id="logout" href="student_login_reg.html"><span class="material-symbols-outlined text-label-md text-primary">logout</span>Log out</a></div></div></div></div></header>
 <main class="w-full pt-16 bg-surface flex-1 max-w-7xl mx-auto px-margin py-space-lg">
 <div class="flex flex-col w-full">
 <div class="max-w-6xl mx-auto w-full py-8 px-6 flex flex-col gap-6">
 
 <!-- Welcome line (filled from the logged-in account later) -->
 <div class="flex items-center justify-between py-2 text-on-surface-variant font-body-md text-body-md border-b border-surface-variant">
-<span class="font-body-md-medium text-body-md-medium text-on-surface">Welcome back, <span id="studentName">Elena</span> <span class="text-outline-variant mx-1.5">·</span> <span class="text-on-surface-variant font-body-md text-body-md" id="studentNo">Student No. 2024-00123</span></span>
+<span class="font-body-md-medium text-body-md-medium text-on-surface">Welcome, <span id="studentName"></span> <span class="text-outline-variant mx-1.5">·</span> <span class="text-on-surface-variant font-body-md text-body-md" id="studentNo">Student No. 2024-00123</span></span>
 </div>
 F
 <section class="flex flex-col gap-6">
@@ -47,8 +47,8 @@ F
 <section class="mt-2 bg-surface-container-low border border-surface-variant rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
 <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-headline-sm">help_outline</span><span class="font-body-md-medium text-body-md-medium text-on-surface">Having trouble?</span></div>
 <div class="flex items-center gap-3 shrink-0">
-<a class="px-4 py-2 border border-surface-variant hover:bg-surface-container-lowest text-on-surface font-label-md text-label-md rounded-lg transition-colors" href="#">Honor Code</a>
-<a class="px-4 py-2 bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md rounded-lg shadow-sm transition-colors" href="#">Get help</a>
+
+<span class="font-body-sm text-body-sm text-on-surface-variant">Ask your professor if something looks wrong.</span>
 </div>
 </section>
 
@@ -113,30 +113,36 @@ F
 </div>
 </footer>
 
+<script src="common.js"></script>
 <script>
-/* ============================================================
-   STUDENT DASHBOARD: list + empty state + exam popup, one page
-   ============================================================ */
-const EXAM_PAGE = 'student exam.html';   // where "Start exam" goes (the live exam page)
-
-/* ---- sample data. Replace loadExams() with a real api call later ---- */
-function at(days, h, m) { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, m, 0, 0); return d.getTime(); }
-const SAMPLE_EXAMS = [
-  { id: 'cs402',   code: 'CS-402',   title: 'Advanced Algorithms & Computational Complexity', dept: 'Department of Computer Science & Engineering', status: 'open',     questions: 45, minutes: 90,  deadline: at(0, 23, 59), maxLeaves: 3 },
-  { id: 'phys310', code: 'PHYS-310', title: 'Quantum Mechanics & Wave Functions',            dept: 'Faculty of Natural Sciences',                   status: 'open',     questions: 30, minutes: 60,  deadline: at(1, 14, 0),  maxLeaves: 3, calc: true },
-  { id: 'math204', code: 'MATH-204', title: 'Linear Algebra & Numerical Methods',            dept: 'School of Mathematics',                        status: 'upcoming', questions: 50, minutes: 120, opens: at(5, 9, 0),      maxLeaves: 3 },
-  { id: 'cs415',   code: 'CS-415',   title: 'Distributed Systems & Cloud Architecture',      dept: 'Department of Computer Science',               status: 'upcoming', questions: 40, minutes: 75,  opens: at(8, 14, 0),     maxLeaves: 3 },
-  { id: 'math102', code: 'MATH-102', title: 'Discrete Mathematical Structures',              dept: 'School of Mathematics',                        status: 'closed',   questions: 40, finished: at(-7, 10, 0),  score: 94, of: 100, grade: 'A' },
-  { id: 'engr201', code: 'ENGR-201', title: 'Systems Engineering & Protocol Design',         dept: 'Faculty of Engineering',                       status: 'closed',   questions: 35, finished: at(-20, 10, 0), score: 88, of: 100, grade: 'B+' },
-];
+/* STUDENT DASHBOARD: lists the exam from the server, shows your own status, opens the live exam page */
+const EXAM_PAGE = 'studentExam.html';
+const who = () => { try { return JSON.parse(sessionStorage.getItem('who') || 'null'); } catch (e) { return null; } };
+const myAtt = sid => { try { const a = JSON.parse(sessionStorage.getItem('att') || 'null'); return a && String(a.sid).toLowerCase() === String(sid).toLowerCase() ? a : null; } catch (e) { return null; } };
+let LOADERR = '';
 async function loadExams() {
-  if (location.hash === '#empty') return [];   // preview the empty state: add #empty to the address
-  return SAMPLE_EXAMS;                          // TODO: replace with the real exam list from the backend
+  LOADERR = '';
+  const w = who();
+  if (!w) { location.replace('student_login_reg.html'); return []; }
+  $('studentName').textContent = w.name; $('studentNo').textContent = 'Student ID ' + w.sid;
+  $('menuName').textContent = w.name; $('menuNo').textContent = 'Student ID ' + w.sid;
+  $('avatarInit').textContent = (w.name.split(/\s+/).map(x => x[0]).join('').slice(0, 2) || '?').toUpperCase();
+  let i;
+  try { i = await api('info'); } catch (e) { LOADERR = e.message; return []; }
+  $('termLabel').textContent = i.school || 'ProctorQuiz';
+  if (!i.title) return [];
+  const e = { id: 'main', code: 'EXAM', title: i.title, dept: i.school, questions: i.n, minutes: Math.max(1, Math.ceil(i.sec / 60)), maxLeaves: i.maxLeaves, calc: !!(i.s && i.s.calc), opens: i.opens, deadline: i.closes };
+  const a = myAtt(w.sid); let v = null;
+  if (a) { try { v = (await api('state', { sid: a.sid, token: a.token })).view; } catch (x) { /* attempt gone: treat as none */ } }
+  if (v && v.status === 'in_progress') e.status = 'open', e.resume = true;
+  else if (v) { e.status = 'closed'; e.finished = v.finished || Date.now(); e.score = v.score; e.of = v.of; e.receipt = v.receipt; e.locked = v.status === 'locked'; }
+  else if (i.open) e.status = 'open';
+  else if (i.status === 'open' && i.opens && Date.now() < i.opens) e.status = 'upcoming';
+  else return [];
+  return [e];
 }
 
 /* ---- helpers ---- */
-const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const fmtDate = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
 function dayWord(t) {
@@ -161,17 +167,17 @@ function cardHTML(e) {
   if (e.status === 'closed') {
     meta = `<span class="flex items-center gap-1.5">${ico('task_alt')} ${e.questions} Questions</span>${dot}<span class="flex items-center gap-1.5">Completed ${fmtDate(e.finished)}</span>`
          + (e.score != null ? `${dot}<span class="flex items-center gap-1.5 font-semibold text-tertiary">${ico('military_tech', 'text-tertiary')} Score: ${e.score}/${e.of}${e.grade ? ' (Grade: ' + esc(e.grade) + ')' : ''}</span>` : '');
-    note = '<div class="hidden md:flex items-center gap-1 text-tertiary font-label-sm text-label-sm font-semibold">' + ico('check_circle', 'text-tertiary') + (e.score != null ? 'Grading finalized' : 'Submitted') + '</div>';
+    note = '<div class="hidden md:flex items-center gap-1 text-tertiary font-label-sm text-label-sm font-semibold">' + ico('check_circle', 'text-tertiary') + (e.locked ? 'Locked, see your professor' : e.score != null ? 'Score released' : 'Submitted') + '</div>';
     btn = '<button class="inline-flex items-center justify-center gap-2 bg-surface-container hover:bg-surface-container-high text-on-surface px-6 py-2.5 rounded-lg font-label-md text-label-md transition-colors" data-view="' + esc(e.id) + '" type="button">' + ico('receipt_long', 'text-on-surface') + '<span>View summary</span></button>';
   } else {
     const when = open
-      ? `<span class="flex items-center gap-1.5 text-primary font-medium">${ico('schedule', 'text-primary')} Deadline: ${fmtWhen(e.deadline)}</span>`
+      ? `<span class="flex items-center gap-1.5 text-primary font-medium">${ico('schedule', 'text-primary')} ${e.deadline ? 'Deadline: ' + fmtWhen(e.deadline) : 'Open until your professor closes it'}</span>`
       : `<span class="flex items-center gap-1.5 text-on-surface">${ico('calendar_month')} Opens: ${fmtWhen(e.opens)}</span>`;
     meta = `<span class="flex items-center gap-1.5">${ico('quiz')} ${e.questions} Questions</span>${dot}<span class="flex items-center gap-1.5">${ico('timer')} About ${e.minutes} min</span>${dot}${when}`;
     note = '<div class="hidden md:flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">'
          + (open ? (e.calc ? ico('calculate', 'text-secondary') + 'Calculator allowed' : ico('verified_user', 'text-tertiary-container') + 'Proctored session') : ico('lock_clock') + 'Locked until it opens') + '</div>';
     btn = open
-      ? '<button class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all shadow-sm focus:outline-none focus:ring-4 focus:ring-primary/20" data-view="' + esc(e.id) + '" type="button"><span>View exam</span>' + ico('arrow_forward', 'text-on-primary') + '</button>'
+      ? '<button class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all shadow-sm focus:outline-none focus:ring-4 focus:ring-primary/20" data-view="' + esc(e.id) + '" type="button"><span>' + (e.resume ? 'Resume exam' : 'View exam') + '</span>' + ico('arrow_forward', 'text-on-primary') + '</button>'
       : '<button class="inline-flex items-center justify-center gap-2 bg-surface-container hover:bg-surface-container-high text-on-surface px-6 py-2.5 rounded-lg font-label-md text-label-md transition-colors" data-view="' + esc(e.id) + '" type="button">' + ico('info', 'text-on-surface') + '<span>Details</span></button>';
   }
   return `<article class="exam-card bg-surface-container-lowest rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden group" data-category="${e.status}">
@@ -208,8 +214,8 @@ function render() {
   empty.classList.toggle('flex', !list.length);
   if (!list.length) {
     const none = EXAMS.length === 0;
-    $('emptyTitle').textContent = none ? 'No exams available right now' : 'No ' + FILTER + ' exams';
-    $('emptyText').textContent = none ? 'Check back later' : 'Try another filter';
+    $('emptyTitle').textContent = LOADERR ? 'Cannot load exams' : none ? 'No exams available right now' : 'No ' + FILTER + ' exams';
+    $('emptyText').textContent = LOADERR ? LOADERR : none ? 'Wait for your professor to open the exam, then refresh.' : 'Try another filter';
     const next = EXAMS.filter(e => e.status === 'upcoming').sort((a, b) => a.opens - b.opens)[0];
     const show = !!next && (FILTER === 'all' || FILTER === 'open');
     $('emptyNext').classList.toggle('hidden', !show);
@@ -226,22 +232,24 @@ $('filterTabs').addEventListener('click', ev => {
 /* ---- exam details popup ---- */
 let lastFocus = null, current = null;
 function openModal(id) {
-  const e = EXAMS.find(x => x.id === id); if (!e || e.status === 'closed') return;   // summaries come later
+  const e = EXAMS.find(x => x.id === id); if (!e) return;
+  if (e.status === 'closed') { alert((e.locked ? 'Your exam was locked. Please see your professor.\n' : 'Your answers were recorded.\n') + (e.score != null ? 'Score: ' + e.score + ' / ' + e.of + '\n' : '') + (e.receipt ? 'Receipt: ' + e.receipt : '')); return; }
   current = e; lastFocus = document.activeElement;
   const open = e.status === 'open';
   $('mCode').textContent = e.code + ' • ' + e.dept;
   $('exam-dialog-title').textContent = e.title;
   $('mQuestions').textContent = e.questions;
   $('mMinutes').textContent = '~' + e.minutes;
-  $('mLeaves').textContent = e.maxLeaves ?? 3;
+  $('mLeaves').textContent = e.maxLeaves; $('mLeaves').closest('li').style.display = e.maxLeaves > 0 ? '' : 'none';
   $('mWhenLabel').textContent = open ? 'Deadline' : 'Opens';
-  $('mWhenTime').textContent = fmtTime(open ? e.deadline : e.opens);
-  $('mWhenDay').textContent = dayWord(open ? e.deadline : e.opens);
+  const wt = open ? e.deadline : e.opens;
+  $('mWhenTime').textContent = wt ? fmtTime(wt) : 'Now';
+  $('mWhenDay').textContent = wt ? dayWord(wt) : 'No deadline';
   const go = $('modalStart');
   go.disabled = !open;
   go.classList.toggle('cursor-not-allowed', !open);
   go.classList.toggle('opacity-60', !open);
-  $('modalStartText').textContent = open ? 'Start exam' : 'Not open yet';
+  $('modalStartText').textContent = open ? (e.resume ? 'Resume exam' : 'Start exam') : 'Not open yet';
   $('modalStartIcon').textContent = open ? 'arrow_forward' : 'lock';
   const m = $('examModal'); m.classList.remove('hidden'); m.classList.add('flex');
   document.body.classList.add('overflow-hidden');
@@ -258,7 +266,7 @@ function startExam() {
   $('modalStartText').textContent = 'Starting…';
   $('modalStartIcon').textContent = 'progress_activity';
   $('modalStartIcon').classList.add('animate-spin');
-  location.href = EXAM_PAGE + '?exam=' + encodeURIComponent(current.id);
+  location.href = EXAM_PAGE;
 }
 
 $('examCardsContainer').addEventListener('click', ev => {
@@ -273,6 +281,8 @@ document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !$('exam
 /* ---- go ---- */
 async function init() { EXAMS = await loadExams(); FILTER = 'all'; render(); }
 window.addEventListener('hashchange', init);
+$('logout').addEventListener('click', () => { try { sessionStorage.removeItem('who'); sessionStorage.removeItem('att'); } catch (e) {} });
+setInterval(() => { if ($('examModal').classList.contains('hidden')) init(); }, 30000);
 init();
 </script>
 </body>
