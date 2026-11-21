@@ -553,7 +553,7 @@ async function route(b, ip) {
       return profile(u, await r.get('s:' + u.school));
     }
     case 'school': {
-      await throttle('sch', ip, 60, 600);
+      await throttle('sch', ip, 600, 600);   // a whole class shares one school IP
       const sc = await r.get('s:' + str(b.code, 10).toUpperCase());
       if (!sc) throw err('We could not find a school with that code. Check it with your professor.', 404);
       return { name: sc.name, code: sc.code };
@@ -806,7 +806,8 @@ async function route(b, ip) {
       return { title: ex.title, status: a.status, score: sc, of: tot, pct: tot ? Math.round(sc / tot * 100) : 0, receipt: rc(a), finished: a.finished || 0, showKey: !!o.showKey, review: !!o.showReview, rows };
     }
     case 'claim': {   // a student whose browser forgot the session gets it back with student ID + receipt code
-      await throttle('claim', ip, 12, 900);
+      await throttle('claim', ip, 200, 900);   // loose per-IP cap: a class shares one school IP
+      await throttle('claimid', norm(str(b.sid, 40)) + ':' + ip, 10, 900);   // strict per student ID
       const sc = await r.get('s:' + str(b.code, 10).toUpperCase());
       if (!sc) throw err('School not found. Sign in again.', 404);
       const sid = str(b.sid, 40), nrm = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1'), rcpt = nrm(str(b.receipt, 30));   // O/0 and I/L/1 look alike, so treat them the same

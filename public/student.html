@@ -92,5 +92,5 @@ $('cgo').onclick = async () => {
   catch (e) { showC(e.message); }
   $('cgo').disabled = false;
 };
-load(); setInterval(() => { if (!$('modal').classList.contains('on')) load(); }, 30000);
+load(); setInterval(() => { if (!document.hidden && !$('modal').classList.contains('on') && !$('rmodal').classList.contains('on')) load(); }, 60000);   // fewer database calls
 </script></body></html>
