@@ -13,20 +13,3 @@ Timed, proctored exams for any school. Professors create an account (or join the
 
 Per-question server-side timers, shuffled questions and choices, numeric answers with per-student random values, follow-up questions, handwritten-work photo checks, tab/fullscreen/copy-paste tracking with integrity flags, class-list restriction, scheduling, announcements, Excel export and optional live push to Google Sheets (`google-apps-script/Code.gs`).
 
-## Deploy (Vercel)
-
-1. Import the repo in Vercel.
-2. **Storage > Upstash Redis**: create a database and connect it to the project (sets `KV_REST_API_URL` / `KV_REST_API_TOKEN`).
-3. **Settings > Environment Variables**: add `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`).
-4. Redeploy. Open `/prof-login`, choose **Create account > New school**.
-
-Variables are listed in `.env.example`. Local dev: `npm i -g vercel`, `vercel dev`.
-
-## Pages
-
-`/` landing · `/student-login` · `/student` exams · `/exam?id=` live exam · `/prof-login` · `/prof` dashboard · `/editor?id=` questions, settings, results.
-
-## Notes
-
-- Passwords are hashed with scrypt; sessions are signed tokens valid for 7 days; sign-in and sign-up are rate limited per IP.
-- Data lives in Redis; deleting an exam removes its attempts and work photos.
