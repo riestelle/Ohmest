@@ -1,0 +1,241 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><meta name="robots" content="noindex"><title>Exam · Ohmest</title></head><body>
+<header class="hdr"><div class="in"><a class="logo" href="student.html"><i>O</i>Ohmest</a><div style="font-weight:600;font-size:14px;text-align:center" id="exam-title"></div><div class="top-row" style="gap:8px"><span class="pill" id="progress-badge" style="display:none"></span><button class="btn sec sm" onclick="document.documentElement.style.fontSize = document.documentElement.style.fontSize ? '' : '20px'" type="button" aria-label="Larger text">A+</button></div></div></header>
+<div id="banners" style="padding:16px 24px 0"></div>
+<div class="hidden" id="timer-section" style="padding:16px 24px 0"><div class="timerbox"><div class="t"><span>Per-question timer</span><b id="countdown-display"></b></div><div class="bar"><i id="timer-bar" style="width:100%"></i></div></div></div>
+<main class="xmain" id="app"><p class="mu">Loading…</p></main>
+<script src="common.js"></script>
+<script>
+/* LIVE EXAM PAGE. The server owns the clock, the order and the answer key; this page only draws and reports. */
+const COARSE = matchMedia('(pointer:coarse)').matches;
+let S = { code: '', sid: '', name: '', token: '', v: null, sel: null, t0: 0, fs: false, nofs: false, timer: null, poll: null, info: null, num: { v: '', u: '' }, ann: null };
+let busy = false, away = false, lt = null, retryAt = 0;
+const EID = new URLSearchParams(location.search).get('id') || '', W = student();
+const CARD = 'qcard';
+const fsFn = () => { const e = document.documentElement; return e.requestFullscreen || e.webkitRequestFullscreen; };
+const inFs = () => document.fullscreenElement || document.webkitFullscreenElement;
+async function tryFs() { const f = fsFn(); if (!f) return false; try { await f.call(document.documentElement); return true; } catch (e) { return false; } }
+const exitFs = () => { if (inFs()) { const f = document.exitFullscreen || document.webkitExitFullscreen; if (f) { try { const p = f.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } } } };
+
+function backLink() { return '<a class="btn" style="margin-top:16px" href="student.html">Back to exams</a>'; }
+
+async function init() {
+  if (!W) { location.replace('student-login.html'); return; }
+  if (!EID) { location.replace('student.html'); return; }
+  S.name = W.name; S.sid = W.sid; S.code = W.code;
+  try { S.info = await api('info', { eid: EID }); }
+  catch (e) { app.innerHTML = `<div class="${CARD}"><b>Cannot load the exam.</b><p class="mu" style="margin-top:8px">${esc(e.message)}</p>${backLink()}</div>`; return; }
+  $('exam-title').textContent = S.info.title || '';
+  document.title = (S.info.title ? S.info.title + ' · ' : '') + 'Ohmest';
+  intro();
+}
+function savedAtt() { const t = attempts()[EID]; return t ? { token: t } : null; }
+
+function intro(msg = '') {
+  const i = S.info, resume = !!savedAtt();
+  if (!i.title || (!i.open && !resume)) {
+    app.innerHTML = `<div class="${CARD} c"><h1 style="font-size:22px;margin-bottom:8px">${esc(i.title || 'No exam')}</h1><p class="mu">${i.opens && Date.now() < i.opens ? 'This exam opens ' + esc(new Date(i.opens).toLocaleString()) + '.' : 'This exam is not open right now.'}</p>${backLink()}</div>`;
+    return;
+  }
+  const rules = [
+    'Each question has its own timer. When it ends, your answer locks automatically.',
+    'You cannot go back to earlier questions.',
+    'Stay on this screen. Switching tabs or apps' + (i.s.fsTrack ? ', or leaving fullscreen (where your device supports it),' : '') + ' is recorded and shown to your professor.',
+    i.maxLeaves > 0 ? 'Leaving ' + i.maxLeaves + ' time' + (i.maxLeaves === 1 ? '' : 's') + ' locks the exam.' : '',
+    i.s.copyBlock ? 'Copying and pasting are disabled.' : '',
+    'Reloading the page counts as leaving.',
+    i.fu ? 'After the main questions you may get ' + i.fu + ' short follow-up question' + (i.fu === 1 ? '' : 's') + ' about your own problems.' : '',
+    i.spot ? 'When you finish, you will be asked to upload a photo of your handwritten solution for ' + i.spot + ' of your problems within ' + i.spotMins + ' minutes. Keep your scratch paper and a camera ready.' : '',
+  ].filter(Boolean);
+  app.innerHTML = `<div class="${CARD}"><h1 style="font-size:26px;font-weight:700">${esc(i.title)}</h1>
+<p class="mu" style="margin-top:4px">${esc(i.school)} · ${i.n} questions · about ${Math.ceil(i.sec / 60)} min · ${esc(S.name)} (${esc(S.sid)})</p>
+<ul style="padding-left:20px;margin:20px 0 0;display:grid;gap:8px;font-size:14px">${rules.map(r => '<li>' + esc(r) + '</li>').join('')}</ul>
+<p class="bad" style="margin-top:16px;font-size:14px" id="imsg">${esc(msg)}</p>
+<div class="top-row" style="margin-top:24px"><button class="btn" id="go" onclick="begin()" type="button">${resume ? 'Resume exam' : 'Start exam'}</button><a class="btn sec" href="student.html">Back</a></div></div>`;
+}
+async function begin() {
+  const go = $('go'); go.disabled = true;
+  const fsP = S.info.s.fsTrack ? tryFs() : Promise.resolve(false);     // must be requested inside the click
+  const prev = savedAtt();
+  try {
+    const j = await api('start', { eid: EID, code: S.code, name: S.name, sid: S.sid, token: prev ? prev.token : undefined });
+    S.token = j.token;
+    saveAttempt(EID, j.token);
+    const ok = await fsP;
+    S.fs = !!ok; S.nofs = S.info.s.fsTrack && !ok;
+    setView(j.view);
+    if (S.nofs) ev('nofs');
+  } catch (e) {
+    await fsP; exitFs();
+    intro(e.message);
+  }
+}
+
+function banners() {
+  const v = S.v, out = [], canFs = !!fsFn() && S.info.s.fsTrack;
+  const B = (t, extra = '') => `<div class="alert" style="max-width:900px;margin:0 auto 8px;justify-content:space-between;align-items:center"><span>${t}</span>${extra}</div>`;
+  if (v && v.status === 'in_progress') {
+    if (canFs && !inFs()) out.push(B((S.fs ? 'You left fullscreen. This was recorded. ' : 'Please return to fullscreen. '), '<button class="btn sm" onclick="enterFs()" type="button">Return to fullscreen</button>'));
+    if (v.max > 0 && v.leaves > 0) out.push(B('You have left the exam ' + v.leaves + ' time' + (v.leaves === 1 ? '' : 's') + '. The exam locks at ' + v.max + '.'));
+    if (S.ann) out.push(B('📢 ' + esc(S.ann.text)));
+  }
+  $('banners').innerHTML = out.join('');
+}
+async function enterFs() { const ok = await tryFs(); if (ok) S.fs = true; banners(); }
+
+function setView(v) {
+  if (S.v && (v.cur !== S.v.cur || v.f !== S.v.f)) { S.sel = null; S.num = { v: '', u: '' }; }
+  S.v = v; S.ann = v.ann || null; S.t0 = performance.now();
+  if (v.status !== 'in_progress') {
+    clearInterval(S.timer); clearInterval(S.poll); S.timer = S.poll = null;
+    exitFs(); $('timer-section').classList.add('hidden'); $('progress-badge').style.display = 'none'; banners();
+    const lk = v.status === 'locked';
+    app.innerHTML = `<div class="qcard c">
+<div style="width:64px;height:64px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:30px;background:${lk ? '#FEF3C7' : '#BDF5D6'};color:${lk ? '#B45309' : '#1A7F4B'}">${lk ? '!' : '✓'}</div>
+<h1 style="font-size:26px;margin-bottom:8px">${lk ? 'Exam locked' : 'Exam submitted'}</h1>
+<p class="mu" style="margin:0 0 24px">${lk ? 'You left the exam too many times, so it was locked. Your answers so far were saved. Please see your professor.' : 'Your answers were recorded. Your professor will share results.'}</p>
+<div class="recap">${v.score !== undefined ? `<div class="rw"><span>Score</span><b style="color:var(--ok);font-size:18px">${esc(v.score)} / ${esc(v.of)}</b></div>` : ''}
+<div class="rw"><span>Submission receipt</span><b>${esc(v.receipt || '')}</b></div><div class="mu" style="font-size:12px">Screenshot the receipt as proof you finished.</div></div>
+${v.work ? workUI(v.work) : ''}
+<a class="btn block" href="student.html">Back to exams</a></div>`;
+    return;
+  }
+  if (!S.timer) S.timer = setInterval(tick, 250);
+  if (!S.poll) S.poll = setInterval(spoll, 15000);
+  showQ();
+}
+
+function showQ() {
+  const v = S.v, num = v.type === 'num';
+  $('timer-section').classList.remove('hidden');
+  const pb = $('progress-badge'); pb.style.display = ''; pb.textContent = (v.f ? 'Follow-up ' : 'Question ') + (v.cur + 1) + ' of ' + v.total;
+  banners();
+  const tiles = v.choices.map((c, i) => `<button class="tile ${S.sel === c.i ? 'selected' : ''}" data-i="${c.i}" onclick="pick(${c.i})" type="button"><i>${L(i)}</i><span>${esc(c.t)}</span></button>`).join('');
+  const numIn = `<input class="xin" id="nv" inputmode="decimal" autocomplete="off" placeholder="Your answer (number)" value="${esc(S.num.v)}" oninput="S.num.v=this.value;setLock()">${S.info.s.units ? `<input class="xin" autocomplete="off" placeholder="Unit (e.g. N)" value="${esc(S.num.u)}" oninput="S.num.u=this.value">` : ''}`;
+  app.innerHTML = `<div class="nosel" style="width:100%"><div class="qcard">
+<div style="display:flex;justify-content:space-between;align-items:center"><span class="tag">${v.f ? 'Follow-up' : num ? 'Numeric answer' : 'Single choice'}</span><span class="mu" style="font-size:12px">${v.t}s</span></div>
+${v.f ? `<div class="recap" style="margin:16px 0 0;font-size:14px;color:var(--mu)">Your problem was:<span style="color:var(--tx)">${esc(v.ctx)}</span></div>` : ''}
+<h2 class="qtext">${esc(v.q)}</h2>
+${num ? `<div style="margin-bottom:28px">${numIn}</div>` : `<div class="tiles">${tiles}</div>`}
+<div class="qfoot"><span class="mu" style="font-size:12px">Irreversible: you cannot return once you continue</span>
+<button class="btn" id="lockbtn" onclick="lock()" type="button" disabled>Lock in answer</button></div></div>
+<div style="max-width:900px;margin:12px auto 0;display:flex;justify-content:space-between;gap:8px">${S.info.s.calc ? '<button class="btn ghost sm" onclick="tools()" type="button">Calculator &amp; formulas</button>' : '<span></span>'}<button class="btn ghost sm" onclick="flagQ(this)" type="button">Report unclear question</button></div></div>`;
+  setLock(); tick();
+}
+function pick(i) {
+  S.sel = i;
+  document.querySelectorAll('.tile').forEach(t => t.classList.toggle('selected', +t.dataset.i === i));
+  setLock();
+}
+function setLock() {
+  const b = $('lockbtn'); if (!b || !S.v) return;
+  const ok = S.v.type === 'num' ? String(S.num.v).trim() !== '' : S.sel !== null;
+  b.disabled = !ok;
+}
+
+/* calculator + formula sheet (in-page overlay, never counts as leaving) */
+const CONST = [['g', '9.8 m/s²'], ['G', '6.674×10⁻¹¹ N·m²/kg²'], ['c', '3.00×10⁸ m/s'], ['k (Coulomb)', '8.99×10⁹ N·m²/C²'], ['ε₀', '8.85×10⁻¹² F/m'], ['h', '6.626×10⁻³⁴ J·s'], ['e', '1.602×10⁻¹⁹ C'], ['mₑ', '9.11×10⁻³¹ kg'], ['mₚ', '1.673×10⁻²⁷ kg'], ['k_B', '1.381×10⁻²³ J/K'], ['N_A', '6.022×10²³ /mol'], ['R', '8.314 J/(mol·K)']];
+const FORM = ['v = v₀ + at', 'x = x₀ + v₀t + ½at²', 'v² = v₀² + 2aΔx', 'F = ma', 'W = Fd cosθ', 'KE = ½mv²', 'PE = mgh', 'p = mv', 'τ = rF sinθ', 'F = Gm₁m₂/r²', 'F = kq₁q₂/r²', 'V = IR', 'P = IV'];
+function tools() {
+  if ($('tools')) return;
+  const d = document.createElement('div'); d.id = 'tools'; d.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:50;overflow:auto;padding:16px';
+  d.innerHTML = `<div style="max-width:760px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b>Calculator &amp; formulas</b><button class="btn sm" onclick="$('tools').remove()" type="button">Close</button></div>
+<div class="card" style="margin-bottom:12px"><input class="xin" id="cx" placeholder="Type or tap, e.g. 9.8*sin(30)" autocomplete="off" onkeydown="if(event.key==='Enter')cc()"><div id="cr" style="font-size:20px;min-height:30px;margin:8px 0"></div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">${['7', '8', '9', '/', 'sin(', 'cos(', '4', '5', '6', '*', 'tan(', '√(', '1', '2', '3', '-', 'log(', 'ln(', '0', '.', '^', '+', 'π', 'e', '(', ')', 'E'].map(k => `<button class="btn sec sm" onclick="ci('${k}')" type="button">${k}</button>`).join('')}<button class="btn sm" onclick="cc()" type="button">=</button><button class="btn sec sm" onclick="$('cx').value='';$('cr').textContent=''" type="button">C</button></div>
+<p class="mu" style="margin-top:8px;font-size:12px">Angles are in degrees. Use E for ×10ⁿ, e.g. 3E8.</p></div>
+<div class="card" style="font-size:14px"><b>Constants</b>${CONST.map(c => `<div class="mu">${c[0]} = ${c[1]}</div>`).join('')}<b style="display:block;margin-top:8px">Formulas</b>${FORM.map(f => `<div class="mu">${f}</div>`).join('')}${S.info.s.sheet ? '<b style="display:block;margin-top:8px">From your professor</b><div class="mu" style="white-space:pre-wrap">' + esc(S.info.s.sheet) + '</div>' : ''}</div></div>`;
+  document.body.appendChild(d);
+}
+const ci = k => { $('cx').value += k === 'e' ? '2.718281828' : k; };
+function cc() {
+  try {
+    // log( must be rewritten before ln( : ln( becomes Math.log( which would otherwise match log( again
+    let s = $('cx').value.replace(/π/g, 'Math.PI').replace(/√\(/g, 'Math.sqrt(').replace(/\^/g, '**').replace(/\blog\(/g, 'Math.log10(').replace(/\bln\(/g, 'Math.log(').replace(/(\d)E(-?\d)/g, '$1e$2').replace(/\b(a?(?:sin|cos|tan))\(/g, '$1d(');
+    const t = s.replace(/Math\.(PI|sqrt|log10|log)|a?(sin|cos|tan)d/g, ''); if (/[^0-9+\-*/().e\s]/.test(t)) throw 0;
+    const Dg = Math.PI / 180, f = Function('sind', 'cosd', 'tand', 'asind', 'acosd', 'atand', 'return(' + s + ')')(x => Math.sin(x * Dg), x => Math.cos(x * Dg), x => Math.tan(x * Dg), x => Math.asin(x) / Dg, x => Math.acos(x) / Dg, x => Math.atan(x) / Dg);
+    $('cr').textContent = isFinite(f) ? '= ' + (+f.toPrecision(10)) : 'Error';
+  } catch (e) { $('cr').textContent = 'Error'; }
+}
+function flagQ(b) { ev('flag'); b.textContent = 'Reported'; b.disabled = true; }
+
+async function spoll() {
+  if (!S.v || S.v.status !== 'in_progress' || busy) return;
+  try {
+    const j = await api('state', { eid: EID, sid: S.sid, token: S.token });
+    if (j.view.status !== 'in_progress' || j.view.cur !== S.v.cur || j.view.f !== S.v.f) setView(j.view);
+    else { S.ann = j.view.ann || null; banners(); }
+  } catch (e) { /* offline blip, try again later */ }
+}
+function tick() {
+  const v = S.v; if (!v || v.status !== 'in_progress') return;
+  const left = v.left - (performance.now() - S.t0), tl = $('countdown-display'), tb = $('timer-bar');
+  if (left <= 0) { if (Date.now() >= retryAt) lock(); return; }
+  if (tl) { tl.textContent = Math.ceil(left / 1000) + 's'; tl.style.color = left < 6000 ? '#B45309' : ''; tb.style.width = Math.max(0, left / (v.t * 10)) + '%'; tb.style.background = left < 6000 ? '#B45309' : ''; }
+}
+async function lock() {
+  if (busy) return; busy = true;
+  try { const j = await api('answer', { eid: EID, sid: S.sid, token: S.token, qi: S.v.qi, f: S.v.f ? 1 : 0, sel: S.sel === null ? -1 : S.sel, v: S.num.v, u: S.num.u }); retryAt = 0; setView(j.view); }
+  catch (e) { retryAt = Date.now() + 2000; }       // retried by the timer
+  busy = false;
+}
+
+/* ---- handwritten work photo ---- */
+function workUI(w) {
+  return `<div class="recap" style="font-size:14px;color:var(--tx)"><b>Show your work</b><span class="mu">Your professor asked for a clear photo of your handwritten solution for ${w.items.length > 1 ? 'these problems' : 'this problem'}. ${w.open ? 'Upload by <b>' + esc(new Date(w.by).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) + '</b>.' : '<span class="bad">The upload window has closed.</span>'}</span>`
+    + w.items.map(x => `<div class="card" style="padding:12px"><div class="mu" style="font-size:12px">Your problem ${x.n}</div><div style="font-size:14px">${esc(x.q)}</div>${x.up ? '<p class="ok" style="margin:6px 0 0;font-size:14px">✔ Uploaded</p>' : ''}${w.open ? `<input type="file" accept="image/*" data-qi="${x.qi}" onchange="upl(this)" style="margin-top:8px;padding:6px"><div class="mu" style="font-size:12px" id="up${x.qi}"></div>` : ''}</div>`).join('') + '</div>';
+}
+async function upl(inp) {
+  const qi = +inp.dataset.qi, f = inp.files[0], m = $('up' + qi); if (!f) return;
+  m.textContent = 'Uploading…';
+  try { const img = await shrink(f); const j = await api('upload', { eid: EID, sid: S.sid, token: S.token, qi, img }); setView(j.view); }
+  catch (e) { m.textContent = e.message || 'Upload failed. Try again.'; }
+}
+function shrink(file) {
+  return new Promise((res, rej) => {
+    const im = new Image(), u = URL.createObjectURL(file);
+    im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('Could not read that photo. Try a JPEG or PNG.')); };
+    im.onload = () => {
+      URL.revokeObjectURL(u);
+      for (const [d, q] of [[1400, .72], [1100, .6], [900, .5], [700, .4]]) {
+        const k = Math.min(1, d / Math.max(im.width, im.height)), c = document.createElement('canvas');
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+        const s = c.toDataURL('image/jpeg', q); if (s.length <= 560000) return res(s);
+      }
+      rej(new Error('The photo is too large. Move closer to the paper, then try again.'));
+    };
+    im.src = u;
+  });
+}
+
+/* ---- proctoring events ---- */
+async function ev(k) {
+  if (!S.v || S.v.status !== 'in_progress') return;
+  try { const j = await api('event', { eid: EID, sid: S.sid, token: S.token, k }); if (j.view.status !== 'in_progress' || k === 'back') setView(j.view); else if (k !== 'flag') { S.v.leaves = j.view.leaves; banners(); } } catch (e) { /* ignore */ }
+}
+/* a window losing focus for under 2 seconds (keyboard, notification) is ignored; phones only report real app switches */
+function leave(k) {
+  if (!S.v || S.v.status !== 'in_progress') return;
+  if (k === 'window_blur' && COARSE) return;
+  if (away) { if (lt && k !== 'window_blur') { clearTimeout(lt); lt = null; ev(k); } return; }
+  away = true;
+  if (k === 'window_blur') lt = setTimeout(() => { lt = null; if (away) ev(k); }, 2000); else ev(k);
+}
+function back() {
+  if (!away) return; away = false;
+  if (lt) { clearTimeout(lt); lt = null; return; }   // short blip, never reported
+  ev('back');
+}
+document.addEventListener('visibilitychange', () => document.hidden ? leave('tab_hidden') : back());
+addEventListener('blur', () => leave('window_blur')); addEventListener('focus', back);
+function fsChange() { if (S.fs && S.v && S.v.status === 'in_progress') { if (!inFs()) leave('fullscreen_exit'); else back(); banners(); } }
+document.addEventListener('fullscreenchange', fsChange); document.addEventListener('webkitfullscreenchange', fsChange);
+['copy', 'cut', 'paste', 'contextmenu', 'dragstart'].forEach(t => document.addEventListener(t, e => {
+  if (!S.v || S.v.status !== 'in_progress' || !(S.info && S.info.s && S.info.s.copyBlock)) return;
+  e.preventDefault(); if (t !== 'contextmenu') ev('paste');
+}));
+document.addEventListener('keydown', e => {
+  if (!S.v || S.v.status !== 'in_progress' || !(S.info && S.info.s && S.info.s.copyBlock)) return;
+  if (e.key === 'PrintScreen' || ((e.ctrlKey || e.metaKey) && 'cpsuaxCPSUAX'.includes(e.key))) { e.preventDefault(); ev('keys'); }
+});
+init();
+</script></body></html>

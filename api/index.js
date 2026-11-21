@@ -5,33 +5,54 @@ const r = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
 });
-const SECRET = process.env.ADMIN_PASSWORD || '';
+const SECRET = process.env.AUTH_SECRET || '';
 const GRACE = 1500;          // ms of network slack on every timer
 const WORK_MAX = 600000;     // max characters of a work photo (base64 JPEG)
 const err = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const L = i => String.fromCharCode(65 + i);
+const str = (s, n) => String(s ?? '').trim().slice(0, n);
 
-/* ---------------- admin auth ---------------- */
-const sha = s => crypto.createHash('sha256').update(String(s)).digest();
-const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
-const sign = e => crypto.createHmac('sha256', SECRET).update(String(e)).digest('hex');
-const mkToken = () => { const e = Date.now() + 12 * 3600e3; return e + '.' + sign(e); };
-const isAdmin = t => {
+/* ---------------- accounts (professors) ---------------- */
+const sign = s => crypto.createHmac('sha256', SECRET).update(s).digest('base64url');
+const mkToken = email => { const p = Buffer.from(JSON.stringify({ e: email, x: Date.now() + 7 * 864e5 })).toString('base64url'); return p + '.' + sign(p); };
+function tokenEmail(t) {
   try {
-    const [e, s] = String(t || '').split('.');
-    return !!SECRET && Number(e) > Date.now() && crypto.timingSafeEqual(Buffer.from(s), Buffer.from(sign(e)));
-  } catch { return false; }
-};
-const needAdmin = b => { if (!isAdmin(b.token)) throw err('Not authorised', 401); };
-
-/* login attempt limit: 5 wrong passwords per IP, 60 in total, per 15 minutes */
-async function limited(ip) {
-  const [a, g] = await Promise.all([r.get('rl:' + ip), r.get('rl:all')]);
-  if (+a >= 5 || +g >= 60) throw err('Too many wrong passwords. Try again in 15 minutes.', 429);
+    const [p, s] = String(t || '').split('.');
+    if (!SECRET || !p || !s) return null;
+    const a = Buffer.from(s), c = Buffer.from(sign(p));
+    if (a.length !== c.length || !crypto.timingSafeEqual(a, c)) return null;
+    const j = JSON.parse(Buffer.from(p, 'base64url').toString());
+    return j.x > Date.now() ? j.e : null;
+  } catch { return null; }
 }
-async function failed(ip) {
-  for (const k of ['rl:' + ip, 'rl:all']) { const n = await r.incr(k); if (n === 1) await r.expire(k, 900); }
+async function needUser(b) {
+  const e = tokenEmail(b.token), u = e && await r.get('u:' + e);
+  if (!u) throw err('Please sign in again', 401);
+  return u;
 }
+const hashPw = (pw, salt) => crypto.scryptSync(String(pw), salt, 32);
+const pwOk = (pw, u) => { const h = hashPw(pw, u.salt), s = Buffer.from(u.hash, 'hex'); return h.length === s.length && crypto.timingSafeEqual(h, s); };
+const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const mkCode = n => Array.from(crypto.randomBytes(n), x => ALPHA[x % 32]).join('');
+async function freshCode(prefix, n) { for (;;) { const c = mkCode(n); if (!(await r.exists(prefix + c))) return c; } }
+async function throttle(kind, ip, max, secs) {
+  const k = 'rl:' + kind + ':' + ip, n = await r.incr(k);
+  if (n === 1) await r.expire(k, secs);
+  if (n > max) throw err('Too many attempts. Please wait a few minutes and try again.', 429);
+}
+const profile = (u, sc) => ({ user: { name: u.name, email: u.email, admin: !!u.admin }, school: { name: sc.name, code: sc.code, fcode: u.admin ? sc.fcode : undefined } });
+const eidOk = e => /^[a-f0-9]{10}$/.test(String(e || ''));
+async function pubEx(eid) {
+  const ex = eidOk(eid) && await r.get('e:' + eid);
+  if (!ex) throw err('That exam does not exist (any more).', 404);
+  return ex;
+}
+async function ownEx(b, u) {
+  const ex = await pubEx(b.eid);
+  if (ex.owner !== u.email) throw err('Exam not found', 404);
+  return ex;
+}
+const getK = async ex => (await r.get('k:' + ex.id)) || [];
 
 /* ---------------- seeded randomness ---------------- */
 function mkRng(seed) {
@@ -103,7 +124,7 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 const DEFS = {
   shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: false, calc: false, units: false, multi: true, neg: 0,
-  sheet: '', opens: 0, closes: 0, roster: [], school: 'UNIVERSITY OF THE EAST', followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '',
+  sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '',
 };
 const SHEET_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[^/]+\/|macros\/)s\/[A-Za-z0-9_-]+\/exec$/;
 const opt = ex => ({ ...DEFS, ...(ex.set || {}) });
@@ -117,13 +138,10 @@ const mkSet = s => {
     calc: !!s.calc, units: !!s.units, multi: !!s.multi, neg: clamp(+s.neg || 0, 0, 100),
     sheet: String(s.sheet || '').slice(0, 3000), opens: +s.opens || 0, closes: +s.closes || 0,
     roster: (Array.isArray(s.roster) ? s.roster : []).map(norm).filter(Boolean).slice(0, 2000),
-    school: String(s.school ?? DEFS.school).slice(0, 60),
     followUps: clamp(Math.floor(+s.followUps || 0), 0, 3), spot: clamp(Math.floor(+s.spot || 0), 0, 3), spotMins: clamp(Math.floor(+s.spotMins || 15), 1, 1440),
     sheetUrl: url, sheetKey: String(s.sheetKey || '').slice(0, 100),
   };
 };
-const aKey = sid => 'att:' + norm(sid);
-const wKey = (sid, qi) => 'work:' + norm(sid) + ':' + qi;
 
 /* ---------------- per-student numbers and answers ---------------- */
 function genVars(q, seed, qi) {
@@ -219,7 +237,7 @@ async function settle(a, ex) {
   if (a.cur >= a.order.length && !a.fuSet) {
     a.fuSet = true;
     if (o.followUps > 0) {
-      const K = (await r.get('key')) || [];
+      const K = (await getK(ex));
       const cands = a.order.filter(qi => ex.questions[qi].fu && corr(ex.questions[qi], K[qi] || {}, a.ans[qi], o, genVars(ex.questions[qi], a.seed, qi)));
       a.fu = perm(cands.length, a.seed + '|fu').slice(0, o.followUps).map(i => cands[i]);
     }
@@ -273,22 +291,14 @@ function view(a, ex, K) {
 }
 async function V(a, ex) {
   const o = opt(ex), it = a.status === 'in_progress' ? items(a)[a.cur] : null;
-  const K = (it && it.f) || (a.status !== 'in_progress' && o.showScore) ? (await r.get('key')) || [] : [];
+  const K = (it && it.f) || (a.status !== 'in_progress' && o.showScore) ? (await getK(ex)) : [];
   const v = view(a, ex, K);
   if (v.status !== 'in_progress') {
     v.receipt = rc(a); v.finished = a.finished || 0;
     if (o.showScore) { v.score = score(a, K, ex); v.of = maxPts(ex); }
-  } else v.ann = await r.get('ann');
+  } else v.ann = await r.get('ann:' + ex.id);
   return v;
 }
-async function loadAtt(b) {
-  const ex = await r.get('exam');
-  if (!ex) throw err('No exam');
-  const a = await r.get(aKey(b.sid));
-  if (!a || a.token !== b.token) throw err('Session not found. Ask your professor to reset you.', 403);
-  return { a, ex };
-}
-
 /* ---------------- analysis: scores, flags, integrity risk ---------------- */
 const median = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const given = (q, g) => !g ? '—' : q.type === 'num' ? (att(q, g) ? String(g.v).trim() + (g.u ? ' ' + g.u : '') : '—') : (g.s >= 0 ? L(g.s) : '—');
@@ -418,56 +428,142 @@ async function pushSheet(url, key, payload, ms = 8000) {
 /* save an attempt; when it has just finished, send its row to the sheet */
 async function put(a, ex) {
   const o = opt(ex), fin = a.status !== 'in_progress' && !a.synced && !!o.sheetUrl;
-  await r.set(aKey(a.sid), a);
+  await r.set(aKey(a.eid, a.sid), a);
   if (!fin) return;
-  const K = (await r.get('key')) || [];
+  const K = (await getK(ex));
   const x = analyze(ex, K, [a]).atts[0];
   const res = await pushSheet(o.sheetUrl, o.sheetKey, { title: ex.title, rows: [sheetRow(x)] }, 4000);
-  if (res.ok) { a.synced = true; await r.set(aKey(a.sid), a); }
+  if (res.ok) { a.synced = true; await r.set(aKey(a.eid, a.sid), a); }
 }
-async function clearAtt(sid, ex) {
-  const n = ex ? ex.questions.length : 200;
-  await r.del(aKey(sid), ...Array.from({ length: n }, (_, i) => wKey(sid, i)));
-  await r.srem('atts', norm(sid));
+
+const aKey = (eid, sid) => 'a:' + eid + ':' + norm(sid);
+const wKey = (eid, sid, qi) => 'w:' + eid + ':' + norm(sid) + ':' + qi;
+async function loadAtt(b) {
+  const ex = await pubEx(b.eid);
+  const a = await r.get(aKey(ex.id, b.sid));
+  if (!a || a.token !== b.token) throw err('Session not found. Ask your professor to reset you.', 403);
+  return { a, ex };
 }
-async function allAtts() {
-  const ids = (await r.smembers('atts')) || [];
-  return ids.length ? (await r.mget(...ids.map(i => 'att:' + i))).filter(Boolean) : [];
+async function clearAtt(ex, sid) {
+  await r.del(aKey(ex.id, sid), ...Array.from({ length: Math.max(ex.questions.length, 1) }, (_, i) => wKey(ex.id, sid, i)));
+  await r.srem('as:' + ex.id, norm(sid));
 }
+async function allAtts(ex) {
+  const ids = (await r.smembers('as:' + ex.id)) || [];
+  return ids.length ? (await r.mget(...ids.map(i => 'a:' + ex.id + ':' + i))).filter(Boolean) : [];
+}
+async function dropExam(ex) {
+  for (const id of ((await r.smembers('as:' + ex.id)) || [])) await clearAtt(ex, id);
+  await r.del('e:' + ex.id, 'k:' + ex.id, 'ann:' + ex.id, 'as:' + ex.id);
+  await r.srem('ue:' + ex.owner, ex.id); await r.srem('se:' + ex.school, ex.id);
+}
+const examCard = (ex, atts) => {
+  const o = opt(ex), done = atts.filter(a => a.status !== 'in_progress').length;
+  return { id: ex.id, title: ex.title, status: ex.status, scheduled: ex.status === 'open' && !!o.opens && Date.now() < o.opens, n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), opens: o.opens, closes: o.closes, total: atts.length, done, prog: atts.length - done, created: ex.created || 0 };
+};
+const examInfo = (ex, school, owner) => {
+  const o = opt(ex);
+  return {
+    id: ex.id, open: isOpen(ex), status: ex.status, now: Date.now(), opens: o.opens, closes: o.closes, title: ex.title, school, by: owner,
+    n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), maxLeaves: ex.maxLeaves, fu: o.followUps, spot: o.spot, spotMins: o.spotMins,
+    s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet },
+  };
+};
 
 /* ---------------- routes ---------------- */
 async function route(b, ip) {
   switch (b.action) {
-    /* ---------- admin ---------- */
-    case 'login':
-      if (!SECRET) throw err('ADMIN_PASSWORD is not set on the server', 500);
-      await limited(ip);
-      if (!same(b.password ?? '', SECRET)) { await failed(ip); throw err('Wrong password', 401); }
-      return { token: mkToken() };
+    /* ---------- accounts ---------- */
+    case 'register': {
+      await throttle('reg', ip, 10, 3600);
+      const name = str(b.name, 80), email = str(b.email, 120).toLowerCase();
+      if (!name) throw err('Enter your name');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err('Enter a valid email address');
+      if (String(b.password || '').length < 8) throw err('Your password must be at least 8 characters');
+      if (await r.exists('u:' + email)) throw err('An account with this email already exists. Sign in instead.', 409);
+      let sc;
+      if (b.mode === 'join') {
+        const code = await r.get('fc:' + str(b.facultyCode, 20).toUpperCase());
+        sc = code && await r.get('s:' + code);
+        if (!sc) throw err('That faculty code was not found. Ask the person who set up your school for it.');
+      } else {
+        const sn = str(b.schoolName, 80);
+        if (!sn) throw err('Enter your school name');
+        sc = { code: await freshCode('s:', 6), fcode: await freshCode('fc:', 10), name: sn, created: Date.now() };
+        await r.set('s:' + sc.code, sc); await r.set('fc:' + sc.fcode, sc.code);
+      }
+      const salt = crypto.randomBytes(16).toString('hex');
+      const u = { email, name, school: sc.code, salt, hash: hashPw(b.password, salt).toString('hex'), admin: b.mode !== 'join', created: Date.now() };
+      await r.set('u:' + email, u);
+      return { token: mkToken(email), ...profile(u, sc) };
+    }
+    case 'login': {
+      if (!SECRET) throw err('AUTH_SECRET is not set on the server', 500);
+      await throttle('login', ip, 15, 900);
+      const u = await r.get('u:' + str(b.email, 120).toLowerCase());
+      if (!u || !pwOk(b.password, u)) throw err('Wrong email or password', 401);
+      return { token: mkToken(u.email), ...profile(u, await r.get('s:' + u.school)) };
+    }
+    case 'me': {
+      const u = await needUser(b);
+      return profile(u, await r.get('s:' + u.school));
+    }
+    case 'school': {
+      await throttle('sch', ip, 60, 600);
+      const sc = await r.get('s:' + str(b.code, 10).toUpperCase());
+      if (!sc) throw err('We could not find a school with that code. Check it with your professor.', 404);
+      return { name: sc.name, code: sc.code };
+    }
+
+    /* ---------- professor: exams ---------- */
+    case 'exams': {
+      const u = await needUser(b);
+      const ids = (await r.smembers('ue:' + u.email)) || [];
+      const list = [];
+      for (const id of ids) {
+        const ex = await r.get('e:' + id); if (!ex) continue;
+        list.push(examCard(ex, await allAtts(ex)));
+      }
+      return { exams: list.sort((a, c) => c.created - a.created) };
+    }
+    case 'create': {
+      const u = await needUser(b);
+      if (((await r.scard('ue:' + u.email)) || 0) >= 100) throw err('You have reached the limit of 100 exams. Delete one first.');
+      const id = crypto.randomBytes(5).toString('hex');
+      await r.set('e:' + id, { id, school: u.school, owner: u.email, title: str(b.title, 120) || 'Untitled exam', maxLeaves: 3, status: 'closed', set: mkSet({}), questions: [], created: Date.now() });
+      await r.set('k:' + id, []);
+      await r.sadd('ue:' + u.email, id); await r.sadd('se:' + u.school, id);
+      return { id };
+    }
+    case 'delete': {
+      const ex = await ownEx(b, await needUser(b));
+      if (ex.status === 'open') throw err('Close the exam before deleting it.');
+      await dropExam(ex);
+      return { ok: 1 };
+    }
     case 'load': {
-      needAdmin(b);
-      return { exam: await r.get('exam'), key: (await r.get('key')) || [] };
+      const ex = await ownEx(b, await needUser(b));
+      return { exam: ex, key: await getK(ex) };
     }
     case 'save': {
-      needAdmin(b);
-      const old = await r.get('exam');
-      if (old && old.status === 'open') throw err('Close the exam before editing it, so students who are mid-exam are not affected.');
+      const ex = await ownEx(b, await needUser(b));
+      if (ex.status === 'open') throw err('Close the exam before editing it, so students who are mid-exam are not affected.');
       const raw = (Array.isArray(b.questions) ? b.questions : []).slice(0, 200);
       if (!raw.length) throw err('Add at least one question.');
       const qs = [], key = [];
       raw.forEach((q, i) => { const c = cleanQ(q, i); qs.push(c.item); key.push(c.key); });
-      if (old && ((await r.scard('atts')) || 0) > 0) {
-        const oldKey = (await r.get('key')) || [];
-        if (JSON.stringify(old.questions) !== JSON.stringify(qs) || JSON.stringify(oldKey) !== JSON.stringify(key)) {
-          throw err('Students already have attempts. Export the results, then use \"Clear all attempts\" in Results before changing questions. (Settings alone can still be saved.)');
+      if (ex.questions.length && ((await r.scard('as:' + ex.id)) || 0) > 0) {
+        const oldKey = await getK(ex);
+        if (JSON.stringify(ex.questions) !== JSON.stringify(qs) || JSON.stringify(oldKey) !== JSON.stringify(key)) {
+          throw err('Students already have attempts. Export the results, then use "Clear all attempts" in Results before changing questions. (Settings alone can still be saved.)');
         }
       }
-      await r.set('exam', { title: String(b.title || 'Exam'), maxLeaves: Math.max(0, Math.floor(+b.maxLeaves || 0)), status: 'closed', set: mkSet(b.settings), questions: qs });
-      await r.set('key', key);
+      await r.set('e:' + ex.id, { ...ex, title: str(b.title, 120) || 'Untitled exam', maxLeaves: Math.max(0, Math.floor(+b.maxLeaves || 0)), set: mkSet(b.settings), questions: qs });
+      await r.set('k:' + ex.id, key);
       return { ok: 1 };
     }
     case 'preview': {
-      needAdmin(b);
+      await needUser(b);
       const { item, key } = cleanQ(b.q || {}, +b.i || 0);
       const vars = genVars(item, crypto.randomBytes(4).toString('hex'), 0), ans = ansVal(item, key, vars);
       return {
@@ -476,67 +572,59 @@ async function route(b, ip) {
       };
     }
     case 'status': {
-      needAdmin(b);
-      const ex = await r.get('exam');
-      if (!ex) throw err('Save the exam first');
+      const ex = await ownEx(b, await needUser(b));
+      if (b.open && !ex.questions.length) throw err('Save at least one question before opening the exam.');
       ex.status = b.open ? 'open' : 'closed';
-      await r.set('exam', ex);
-      return { ok: 1, old: b.open ? ((await r.smembers('atts')) || []).length : 0 };
+      await r.set('e:' + ex.id, ex);
+      return { ok: 1, old: b.open ? ((await r.scard('as:' + ex.id)) || 0) : 0 };
     }
     case 'results': {
-      needAdmin(b);
-      const ex = await r.get('exam');
-      if (!ex) return { exam: null, qs: [], atts: [] };
-      const out = analyze(ex, (await r.get('key')) || [], await allAtts());
+      const ex = await ownEx(b, await needUser(b));
+      const out = analyze(ex, await getK(ex), await allAtts(ex));
       return { exam: ex, qs: out.qs, atts: out.atts };
     }
     case 'work': {
-      needAdmin(b);
-      const a = await r.get(aKey(b.sid));
+      const ex = await ownEx(b, await needUser(b));
+      const a = await r.get(aKey(ex.id, b.sid));
       if (!a) throw err('Student not found');
       const imgs = {};
-      for (const qi of Object.keys(a.work || {})) imgs[+qi + 1] = await r.get(wKey(a.sid, qi));
+      for (const qi of Object.keys(a.work || {})) imgs[+qi + 1] = await r.get(wKey(ex.id, a.sid, qi));
       return { imgs };
     }
     case 'review': {
-      needAdmin(b);
-      const a = await r.get(aKey(b.sid));
+      const ex = await ownEx(b, await needUser(b));
+      const a = await r.get(aKey(ex.id, b.sid));
       if (!a) throw err('Student not found');
       a.review = ['cleared', 'oral'].includes(b.review) ? b.review : '';
-      await r.set(aKey(b.sid), a);
+      await r.set(aKey(ex.id, b.sid), a);
       return { ok: 1 };
     }
     case 'reset': {
-      needAdmin(b);
-      await clearAtt(b.sid, await r.get('exam'));
+      const ex = await ownEx(b, await needUser(b));
+      await clearAtt(ex, b.sid);
       return { ok: 1 };
     }
     case 'clear': {
-      needAdmin(b);
-      const ex = await r.get('exam');
-      if (ex && ex.status === 'open') throw err('Close the exam first');
-      const ids = (await r.smembers('atts')) || [];
-      for (const id of ids) await clearAtt(id, ex);
-      await r.del('ann');
+      const ex = await ownEx(b, await needUser(b));
+      if (ex.status === 'open') throw err('Close the exam first');
+      const ids = (await r.smembers('as:' + ex.id)) || [];
+      for (const id of ids) await clearAtt(ex, id);
+      await r.del('ann:' + ex.id);
       return { ok: 1, n: ids.length };
     }
     case 'announce': {
-      needAdmin(b);
-      const t = String(b.text || '').trim().slice(0, 300);
-      if (t) await r.set('ann', { text: t, at: Date.now() }); else await r.del('ann');
+      const ex = await ownEx(b, await needUser(b));
+      const t = str(b.text, 300);
+      if (t) await r.set('ann:' + ex.id, { text: t, at: Date.now() }); else await r.del('ann:' + ex.id);
       return { ok: 1 };
     }
     case 'sheetTest':
     case 'sheetPush': {
-      needAdmin(b);
-      const url = String(b.url || '').trim(), key = String(b.key || '');
+      const ex = await ownEx(b, await needUser(b));
+      const url = str(b.url, 300), key = String(b.key || '');
       if (!SHEET_RE.test(url)) throw err('Paste the web app URL that ends in /exec');
       let rows = [], title = '(test)';
-      if (b.action === 'sheetPush') {
-        const ex = await r.get('exam');
-        if (!ex) throw err('Save the exam first');
-        title = ex.title; rows = analyze(ex, (await r.get('key')) || [], await allAtts()).atts.map(sheetRow);
-      }
+      if (b.action === 'sheetPush') { title = ex.title; rows = analyze(ex, await getK(ex), await allAtts(ex)).atts.map(sheetRow); }
       let n = 0;
       for (let i = 0; i === 0 || i < rows.length; i += 100) {
         const res = await pushSheet(url, key, { title, test: b.action === 'sheetTest', rows: rows.slice(i, i + 100) }, 9000);
@@ -547,22 +635,40 @@ async function route(b, ip) {
     }
 
     /* ---------- student ---------- */
+    case 'sexams': {
+      const sc = await r.get('s:' + str(b.code, 10).toUpperCase());
+      if (!sc) throw err('School not found. Sign in again.', 404);
+      const sid = str(b.sid, 40), tokens = b.tokens && typeof b.tokens === 'object' ? b.tokens : {};
+      const ids = (await r.smembers('se:' + sc.code)) || [], out = [], now = Date.now();
+      for (const id of ids) {
+        const ex = await r.get('e:' + id); if (!ex || !ex.questions.length) continue;
+        let a = sid ? await r.get(aKey(ex.id, sid)) : null;
+        if (a && a.token !== tokens[ex.id]) a = null;
+        const o = opt(ex), upcoming = ex.status === 'open' && o.opens && now < o.opens;
+        if (!a && !isOpen(ex) && !upcoming) continue;
+        let my = null;
+        if (a) {
+          const before = JSON.stringify(a);
+          await adv(a, ex);
+          if (JSON.stringify(a) !== before) await put(a, ex);
+          my = await V(a, ex);
+        }
+        const ow = await r.get('u:' + ex.owner);
+        out.push({ ...examInfo(ex, sc.name, ow ? ow.name : ''), my });
+      }
+      return { school: sc.name, exams: out };
+    }
     case 'info': {
-      const ex = await r.get('exam');
-      if (!ex) return { open: false, school: DEFS.school };
-      const o = opt(ex);
-      return {
-        open: isOpen(ex), status: ex.status, now: Date.now(), opens: o.opens, closes: o.closes, title: ex.title, school: o.school, n: ex.questions.length,
-        sec: ex.questions.reduce((s, q) => s + q.t, 0), maxLeaves: ex.maxLeaves, fu: o.followUps, spot: o.spot, spotMins: o.spotMins,
-        s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet },
-      };
+      const ex = await pubEx(b.eid);
+      const [sc, ow] = await Promise.all([r.get('s:' + ex.school), r.get('u:' + ex.owner)]);
+      return examInfo(ex, sc ? sc.name : '', ow ? ow.name : '');
     }
     case 'start': {
-      const ex = await r.get('exam');
-      if (!ex) throw err('The exam is not open');
-      const name = String(b.name || '').trim().slice(0, 80), sid = String(b.sid || '').trim().slice(0, 40);
+      const ex = await pubEx(b.eid);
+      const name = str(b.name, 80), sid = str(b.sid, 40);
       if (!name || !sid) throw err('Enter your name and student ID');
-      let a = await r.get(aKey(sid));
+      if (ex.school !== String(b.code || '').toUpperCase()) throw err('This exam belongs to a different school', 403);
+      let a = await r.get(aKey(ex.id, sid));
       if (a) {
         if (a.token !== b.token) throw err(a.status === 'in_progress' ? 'This ID already started the exam on another device. Ask your professor to reset it.' : 'This ID has already submitted the exam. If that is a mistake, ask your professor to reset it.', 403);
         if (a.status === 'in_progress') {
@@ -577,11 +683,11 @@ async function route(b, ip) {
         if (rs.length && !rs.includes(norm(sid))) throw err('Your ID is not on the class list');
         const seed = crypto.randomBytes(6).toString('hex');
         a = {
-          name, sid, token: crypto.randomBytes(16).toString('hex'), seed, cur: 0, qStart: Date.now(), started: Date.now(),
+          eid: ex.id, name, sid, token: crypto.randomBytes(16).toString('hex'), seed, cur: 0, qStart: Date.now(), started: Date.now(),
           order: opt(ex).shuffleQ ? perm(ex.questions.length, seed + '|o') : [...ex.questions.keys()],
           ans: {}, fu: [], fans: {}, fuSet: false, work: {}, ev: [], leaves: 0, away: 0, awayAt: 0, review: '', status: 'in_progress',
         };
-        await r.sadd('atts', norm(sid));
+        await r.sadd('as:' + ex.id, norm(sid));
       }
       await put(a, ex);
       return { token: a.token, view: await V(a, ex) };
@@ -637,9 +743,9 @@ async function route(b, ip) {
       if (img.length > WORK_MAX || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(img)) throw err('The photo is too large or not a JPEG');
       const head = Buffer.from(img.slice(23, 43), 'base64');
       if (head[0] !== 0xff || head[1] !== 0xd8) throw err('That file is not a valid photo');
-      await r.set(wKey(a.sid, qi), img);
+      await r.set(wKey(ex.id, a.sid, qi), img);
       a.work = a.work || {}; a.work[qi] = Date.now();
-      await r.set(aKey(a.sid), a);
+      await r.set(aKey(ex.id, a.sid), a);
       return { view: await V(a, ex) };
     }
     default: throw err('Unknown action');
@@ -650,7 +756,7 @@ const DB_OK = !!((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-  if (!DB_OK) return res.status(500).json({ error: 'Database not connected. In Vercel: Storage > add Upstash Redis > connect to this project, then Redeploy.' });
+  if (!DB_OK) return res.status(500).json({ error: 'Database not connected. Add an Upstash Redis database and set UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN (see README).' });
   const ip = String((req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || 'x').split(',')[0].trim().slice(0, 45);
   try { res.json(await route(req.body || {}, ip)); }
   catch (e) { res.status(e.status || 500).json({ error: e.message || 'Server error' }); }

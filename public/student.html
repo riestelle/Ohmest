@@ -1,0 +1,63 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><meta name="robots" content="noindex"><title>My exams · Ohmest</title></head><body>
+<div id="hdr"></div>
+<main class="wrap">
+<div class="strip"><span><b id="nm"></b><span class="dot">·</span><span class="mu" id="sid" style="font-size:16px"></span></span><span class="chip" id="chip"></span></div>
+<section class="head"><div><h1>Exams</h1><p>Exams your professors have opened for you</p></div></section>
+<div class="tabs-f" id="tabs" role="tablist"></div>
+<div id="list" style="display:flex;flex-direction:column;gap:16px"></div>
+</main>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="sheet"><div class="mu" id="mby"></div><h2 id="mt"></h2><ul id="mul"></ul>
+<div class="top-row"><button class="btn" id="mgo" type="button"></button><button class="btn sec" id="mx" type="button">Close</button></div></div></div>
+<div id="ftr"></div>
+<script src="common.js"></script>
+<script>
+const W = student();
+if (!W) { location.replace('student-login.html'); throw 0; }
+chrome({ nav: [['Exams', 'student.html', 'e']], active: 'e', who: { name: W.name, sub: 'ID ' + W.sid + ' · ' + W.school }, logout: 'student-login.html' });
+$('nm').textContent = W.name; $('sid').textContent = 'Student ID ' + W.sid; $('chip').textContent = W.school;
+const tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), dt = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
+const day = t => { const s = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), d = Math.round((s(new Date(t)) - s(new Date())) / 864e5); return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : dt(t); };
+const whenTxt = t => day(t) + ', ' + tm(t), sep = '<span class="sep"></span>', ic = n => `<span class="ms">${n}</span>`;
+let EX = [], FILTER = 'all', LOADERR = '', CUR = null;
+function kind(e) { const m = e.my; if (m && m.status === 'in_progress') return 'open'; if (m) return 'closed'; return e.open ? 'open' : 'upcoming'; }
+function card(e) {
+  const k = kind(e), m = e.my, mins = Math.max(1, Math.ceil(e.sec / 60));
+  const badge = k === 'open' ? '<span class="badge open">OPEN</span>' : k === 'upcoming' ? '<span class="badge soon">UPCOMING</span>' : '<span class="badge">DONE</span>';
+  let meta = `<span>${ic('quiz')}${e.n} question${e.n === 1 ? '' : 's'}</span>`, btn;
+  if (k === 'closed') {
+    meta += sep + `<span>${ic('event_available')}Completed ${e.my.finished ? dt(e.my.finished) : ''}</span>` + (m.score !== undefined ? sep + `<span class="ok" style="font-weight:600">${ic('military_tech')}Score ${esc(m.score)}/${esc(m.of)}</span>` : '');
+    btn = `<button class="btn sec" data-v="${e.id}" type="button"><span class="ms">receipt_long</span>View summary</button>`;
+  } else {
+    meta += sep + `<span>${ic('timer')}About ${mins} min</span>` + sep + (k === 'open' ? `<span>${ic('schedule')}${e.closes ? 'Closes ' + esc(whenTxt(e.closes)) : 'Open until your professor closes it'}</span>` : `<span>${ic('calendar_month')}Opens ${esc(whenTxt(e.opens))}</span>`);
+    btn = k === 'open' ? `<button class="btn" data-v="${e.id}" type="button">${m ? 'Resume exam' : 'View exam'}<span class="ms">arrow_forward</span></button>` : `<button class="btn sec" data-v="${e.id}" type="button"><span class="ms">info</span>Details</button>`;
+  }
+  return `<article class="xcard ${k === 'open' ? 'open' : ''}"><div class="main"><div class="top-row">${badge}</div><h2>${esc(e.title)}</h2><div class="mu">${esc(e.school)}${e.by ? ' · ' + esc(e.by) : ''}</div><div class="meta">${meta}</div></div><div class="acts">${btn}</div></article>`;
+}
+function render() {
+  const T = [['all', 'All'], ['open', 'Open'], ['upcoming', 'Upcoming'], ['closed', 'Done']];
+  $('tabs').innerHTML = T.map(([k, l]) => `<button class="${k === FILTER ? 'on' : ''}" data-f="${k}" role="tab" type="button">${l} (${k === 'all' ? EX.length : EX.filter(e => kind(e) === k).length})</button>`).join('');
+  const list = EX.filter(e => FILTER === 'all' || kind(e) === FILTER);
+  $('list').innerHTML = list.length ? list.map(card).join('') : `<div class="empty"><div class="ic"><span class="ms">${LOADERR ? 'error' : 'event_busy'}</span></div><h2>${LOADERR ? 'Cannot load exams' : EX.length ? 'Nothing here' : 'No exams right now'}</h2><p>${esc(LOADERR || (EX.length ? 'Try another filter.' : 'When your professor opens an exam it appears here automatically.'))}</p></div>`;
+}
+async function load() {
+  try { const j = await api('sexams', { code: W.code, sid: W.sid, tokens: attempts() }); EX = j.exams; LOADERR = ''; }
+  catch (e) { LOADERR = e.message; if (e.status === 404) { location.replace('student-login.html'); return; } }
+  render();
+}
+$('tabs').onclick = ev => { const b = ev.target.closest('[data-f]'); if (b) { FILTER = b.dataset.f; render(); } };
+$('list').onclick = ev => { const b = ev.target.closest('[data-v]'); if (b) openM(b.dataset.v); };
+function openM(id) {
+  const e = EX.find(x => x.id === id); if (!e) return; const k = kind(e);
+  if (k === 'closed') { const m = e.my; alert((m.status === 'locked' ? 'Your exam was locked. Please see your professor.\n' : 'Your answers were recorded.\n') + (m.score !== undefined ? 'Score: ' + m.score + ' / ' + m.of + '\n' : '') + (m.receipt ? 'Receipt: ' + m.receipt : '')); return; }
+  CUR = e; const open = k === 'open';
+  $('mby').textContent = e.school; $('mt').textContent = e.title;
+  $('mul').innerHTML = [e.n + (e.n === 1 ? ' question' : ' questions') + ' · about ' + Math.max(1, Math.ceil(e.sec / 60)) + ' minutes', 'Each question has its own timer and you cannot go back.', e.maxLeaves > 0 ? 'Leaving the exam ' + e.maxLeaves + ' time' + (e.maxLeaves === 1 ? '' : 's') + ' locks it.' : '', e.s.calc ? 'A calculator and formula sheet are provided.' : '', open ? (e.closes ? 'Closes ' + whenTxt(e.closes) : 'Open until your professor closes it') : 'Opens ' + whenTxt(e.opens)].filter(Boolean).map(x => '<li>' + esc(x) + '</li>').join('');
+  $('mgo').disabled = !open; $('mgo').innerHTML = open ? (e.my ? 'Resume exam' : 'Start exam') + '<span class="ms">arrow_forward</span>' : '<span class="ms">lock</span>Not open yet';
+  $('modal').classList.add('on'); (open ? $('mgo') : $('mx')).focus();
+}
+const closeM = () => $('modal').classList.remove('on');
+$('mx').onclick = closeM; $('modal').onclick = ev => { if (ev.target === $('modal')) closeM(); };
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeM(); });
+$('mgo').onclick = () => { if (CUR) location.href = 'exam.html?id=' + CUR.id; };
+load(); setInterval(() => { if (!$('modal').classList.contains('on')) load(); }, 30000);
+</script></body></html>
