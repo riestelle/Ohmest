@@ -76,6 +76,10 @@ const MathFmt = (() => {
         const o = nxt();
         if (o === '*') h += '<span class="mx-op">·</span>' + unary();
         else if (!stack) h += '/' + unary();
+        else if (/^\d+\.?\d*$/.test(strip(h)) && isNum(peek())) {   // 1/2 m v^2 means (1/2)*m*v^2, not 1/(2 m v^2)
+          h = '<span class="mx-fr"><span class="mx-nu">' + strip(h) + '</span><span class="mx-de">' + esc(nxt()) + '</span></span>';
+          for (;;) { const t = peek(); if (t !== undefined && (isNum(t) || isId(t) || t === '(' || t === '[')) h += atom(); else break; }
+        }
         else h = '<span class="mx-fr"><span class="mx-nu">' + strip(h) + '</span><span class="mx-de">' + strip(unary()) + '</span></span>';
       }
       return h;
@@ -108,7 +112,7 @@ const MathFmt = (() => {
     const bal = s => { let d = 0; for (const c of s) { if (c === '(') d++; else if (c === ')') d--; } return d; };
     while (lead.endsWith('(') && bal(core) < 0) { core = '(' + core; lead = lead.slice(0, -1); }   // leading ( was ours
     let k = bal(core); while (k < 0 && core.endsWith(')')) { core = core.slice(0, -1); tail = ')' + tail; k++; }
-    if (!core || !/[A-Za-z0-9]/.test(core) || !TRIG.test(core) || /:\/\/|@|^https?|^www\./i.test(core) || /^[=^_]+$/.test(core)) return esc(tok);
+    if (!core || !/[A-Za-z0-9]/.test(core) || !(TRIG.test(core) || /[A-Za-z0-9)]\*[A-Za-z0-9(]/.test(core)) || /:\/\/|@|^https?|^www\./i.test(core) || /^[=^_]+$/.test(core)) return esc(tok);
     return esc(lead) + html(core, core.includes('=')) + esc(tail);   // a bare m/s^2 stays a slash; equations get stacked fractions
   }
   /* question text: $...$ is always math; whitespace-free tokens such as x=y/z, v^2, a_1 are auto-detected */
