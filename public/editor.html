@@ -81,7 +81,7 @@ function profS() {
 }
 async function sheetAct(a) {
   const m = $('shmsg'); m.textContent = 'Working…';
-  try { const j = await api(a, { url: SET.sheetUrl, key: SET.sheetKey }); m.innerHTML = '<span class="ok">' + (a === 'sheetTest' ? 'Connected ✔' : 'Sent ' + j.n + ' row(s) ✔') + '</span>'; }
+  try { const j = await A(a, { url: SET.sheetUrl, key: SET.sheetKey }); m.innerHTML = '<span class="ok">' + (a === 'sheetTest' ? 'Connected ✔' : 'Sent ' + j.n + ' row(s) ✔') + '</span>'; }
   catch (e) { m.innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
 }
 
