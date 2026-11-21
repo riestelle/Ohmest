@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
+import { evalF, fixF, pf, RESERVED } from '../lib/calc.js';
 
 const r = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
@@ -8,6 +9,7 @@ const r = new Redis({
 const SECRET = process.env.AUTH_SECRET || '';
 const GRACE = 1500;          // ms of network slack on every timer
 const WORK_MAX = 600000;     // max characters of a work photo (base64 JPEG)
+const LIM = { q: 3000, choice: 500, choices: 10, tMax: 3600, ptsMax: 100, bytes: 700000 };   // keeps one exam well under Upstash's request size
 const err = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const L = i => String.fromCharCode(65 + i);
 const str = (s, n) => String(s ?? '').trim().slice(0, n);
@@ -69,88 +71,9 @@ function perm(n, seed) {
   return a;
 }
 
-/* ---------------- safe formula evaluator (no eval) ---------------- */
-const D = Math.PI / 180;
-const FN = {
-  sqrt: Math.sqrt, abs: Math.abs, ln: Math.log, log: Math.log10, exp: Math.exp, min: Math.min, max: Math.max, pow: Math.pow,
-  floor: Math.floor, ceil: Math.ceil, round: Math.round,
-  sin: x => Math.sin(x * D), cos: x => Math.cos(x * D), tan: x => Math.tan(x * D),
-  asin: x => Math.asin(x) / D, acos: x => Math.acos(x) / D, atan: x => Math.atan(x) / D, atan2: (y, x) => Math.atan2(y, x) / D,
-  sinr: Math.sin, cosr: Math.cos, tanr: Math.tan,
-};
-const RESERVED = new Set(['pi', 'e', 'ans', ...Object.keys(FN)]);
-function evalF(src, vars) {
-  const s = String(src).replace(/\*\*/g, '^');
-  if (s.length > 300) throw new Error('long');
-  const T = s.match(/(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|[A-Za-z_]\w*|[()+\-*/^,]|\S/g) || [];
-  let p = 0;
-  const peek = () => T[p], nxt = () => T[p++];
-  function atom() {
-    const t = nxt();
-    if (t === undefined) throw new Error('end');
-    if (t === '(') { const v = expr(); if (nxt() !== ')') throw new Error(')'); return v; }
-    if (/^(?:\d|\.\d)/.test(t)) return parseFloat(t);
-    if (/^[A-Za-z_]/.test(t)) {
-      if (peek() === '(') {
-        nxt(); const args = [];
-        if (peek() !== ')') { do { args.push(expr()); } while (peek() === ',' && nxt()); }
-        if (nxt() !== ')') throw new Error(')');
-        if (!Object.hasOwn(FN, t)) throw new Error('fn');
-        return FN[t](...args);
-      }
-      if (Object.hasOwn(vars, t)) return vars[t];
-      if (t === 'pi') return Math.PI;
-      if (t === 'e') return Math.E;
-    }
-    throw new Error('token');
-  }
-  function pow() { const b = atom(); if (peek() === '^') { nxt(); return Math.pow(b, unary()); } return b; }
-  function unary() { if (peek() === '-') { nxt(); return -unary(); } if (peek() === '+') { nxt(); return unary(); } return pow(); }
-  function term() { let v = unary(); while (peek() === '*' || peek() === '/') { const o = nxt(), x = unary(); v = o === '*' ? v * x : v / x; } return v; }
-  function expr() { let v = term(); while (peek() === '+' || peek() === '-') { const o = nxt(), x = term(); v = o === '+' ? v + x : v - x; } return v; }
-  const v = expr();
-  if (p < T.length || !isFinite(v)) throw new Error('bad');
-  return v;
-}
-
 /* ---------------- text, numbers, settings ---------------- */
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '');
 const nu = u => String(u || '').replace(/\s+/g, '').replace(/[\^·*]/g, '').replace(/²/g, '2').replace(/³/g, '3');
-/* what a student types in a numeric box: 3.5, 3,5, 1/4, 3x10^8, 2pi, sqrt(2). Anything else falls back to the leading number (so "9.8 m/s" still reads as 9.8). */
-function pf(v) {
-  const raw = String(v ?? '').trim();
-  if (!raw || raw.length > 40) return NaN;
-  const plain = raw.replace(/[−–]/g, '-').replace(',', '.');
-  if (/^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(plain)) return parseFloat(plain);
-  try {
-    const s = fixF(raw.replace(/(\d)\s*[xX]\s*(10\s*\^)/g, '$1*$2').replace(/,/g, '.'));
-    const x = evalF(s, {});
-    if (isFinite(x)) return x;
-  } catch { if (/^[\d\s.+\-*/^()]+$/.test(plain)) return NaN; }   // pure arithmetic that fails (1/0) is not a number
-  return parseFloat(plain);
-}
-/* make a typed formula standard: × ÷ − √ π ² unicode, [ ] brackets, "x = ..." prefix, and implicit multiplication (2a, ma, 2(x+1), (a)(b)) */
-function fixF(src, names = []) {
-  const s = String(src).replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/√/g, 'sqrt').replace(/π/g, 'pi').replace(/²/g, '^2').replace(/³/g, '^3').replace(/\[/g, '(').replace(/\]/g, ')');
-  const T = s.match(/(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|[A-Za-z_]\w*|\S/g) || [], out = [];
-  const isFn = t => Object.hasOwn(FN, t), isId = t => /^[A-Za-z_]/.test(t), isNum = t => /^(?:\d|\.\d)/.test(t);
-  T.forEach(t => {
-    if (isId(t) && !names.includes(t) && !RESERVED.has(t) && t.length > 1 && [...t].every(c => names.includes(c))) {   // "ma" -> m * a
-      [...t].forEach((c, i) => { if (i) out.push('*'); out.push(c); }); return;
-    }
-    out.push(t);
-  });
-  const res = [];
-  out.forEach((t, i) => {
-    const p = out[i - 1];
-    if (p !== undefined && t !== '*') {
-      const left = isNum(p) || (isId(p) && !isFn(p)) || p === ')', right = isNum(t) || isId(t) || t === '(';
-      if (left && right && !(isFn(p) && t === '(')) res.push('*');
-    }
-    res.push(t);
-  });
-  return res.join(' ');
-}
 const fmt = x => String(+Number(x).toPrecision(6));
 const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(vars, k) ? fmt(vars[k]) : m));
 const decs = x => Math.min(6, (String(x).split('.')[1] || '').length);
@@ -159,7 +82,7 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const DEFS = {
   shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: false, calc: false, units: false, multi: true, neg: 0,
   sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '',
-  showReview: false, showKey: false, release: 'finish', defTime: 30, defPts: 1, defTol: 2,
+  showReview: false, showKey: false, release: 'finish', pin: '', defTime: 30, defPts: 1, defTol: 2,
 };
 /* what a brand-new exam starts with (older exams keep exactly what they had) */
 const NEW_EXAM = { ...DEFS, shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, release: 'closed', multi: true };
@@ -178,7 +101,7 @@ const mkSet = s => {
     roster: (Array.isArray(s.roster) ? s.roster : []).map(norm).filter(Boolean).slice(0, 2000),
     followUps: clamp(Math.floor(+s.followUps || 0), 0, 3), spot: clamp(Math.floor(+s.spot || 0), 0, 3), spotMins: clamp(Math.floor(+s.spotMins || 15), 1, 1440),
     sheetUrl: url, sheetKey: String(s.sheetKey || '').slice(0, 100),
-    showReview: !!s.showReview, showKey: !!s.showKey, release: s.release === 'closed' ? 'closed' : 'finish',
+    showReview: !!s.showReview, showKey: !!s.showKey, release: s.release === 'closed' ? 'closed' : 'finish', pin: str(s.pin, 20),
     defTime: clamp(Math.floor(+s.defTime || 30), 5, 3600), defPts: clamp(+s.defPts >= 0 ? +s.defPts : 1, 0, 100), defTol: clamp(+s.defTol >= 0 ? +s.defTol : 2, 0, 100),
   };
 };
@@ -226,8 +149,8 @@ const rc = a => crypto.createHash('sha256').update(a.token + '|' + (a.finished |
 function cleanQ(q, i) {
   const num = q.type === 'num', E = m => err('Question ' + (i + 1) + ': ' + m);
   const item = {
-    q: String(q.q || ''), type: num ? 'num' : 'mc', c: num ? [] : (Array.isArray(q.c) ? q.c : []).map(String),
-    t: Math.max(5, +q.t || 30), pts: Math.max(0, +q.pts >= 0 ? +q.pts : 1),
+    q: String(q.q || '').slice(0, LIM.q), type: num ? 'num' : 'mc', c: num ? [] : (Array.isArray(q.c) ? q.c : []).slice(0, LIM.choices).map(x => String(x).slice(0, LIM.choice)),
+    t: clamp(+q.t || 30, 5, LIM.tMax), pts: clamp(+q.pts >= 0 ? +q.pts : 1, 0, LIM.ptsMax),
   };
   const key = {};
   if (!item.q.trim()) throw E('type the question.');
@@ -249,18 +172,18 @@ function cleanQ(q, i) {
       }
       key.f = f;
     } else if (vars.length) throw E('add a formula for the answer.');
-    key.v = String(q.v ?? '').split(',').map(parseFloat).filter(isFinite);
+    key.v = String(q.v ?? '').slice(0, 300).split(',').map(parseFloat).filter(isFinite).slice(0, 20);
     if (!f && !key.v.length) throw E('add at least one accepted answer.');
-    key.tol = Math.max(0, +q.tol || 0); key.u = String(q.u || '').trim();
+    key.tol = clamp(+q.tol || 0, 0, 100); key.u = String(q.u || '').trim().slice(0, 20);
   } else {
     if (item.c.length < 2 || item.c.some(c => !c.trim())) throw E('fill in every choice.');
     key.a = clamp(+q.a || 0, 0, item.c.length - 1);
   }
   const fu = q.fu;
   if (fu && String(fu.q || '').trim()) {
-    const c = (Array.isArray(fu.c) ? fu.c : []).map(String);
+    const c = (Array.isArray(fu.c) ? fu.c : []).slice(0, LIM.choices).map(x => String(x).slice(0, LIM.choice));
     if (c.length < 2 || c.some(x => !x.trim())) throw E('fill in every follow-up choice.');
-    item.fu = { q: String(fu.q), c, t: Math.max(5, +fu.t || 25) };
+    item.fu = { q: String(fu.q).slice(0, LIM.q), c, t: clamp(+fu.t || 25, 5, LIM.tMax) };
     key.fa = clamp(+fu.a || 0, 0, c.length - 1);
   }
   return { item, key };
@@ -470,20 +393,22 @@ async function pushSheet(url, key, payload, ms = 8000) {
 }
 /* save an attempt; when it has just finished, send its row to the sheet */
 /* run slow work after the response has gone out (Vercel keeps the function alive for it); anywhere else it simply waits */
-const later = p => { const c = globalThis[Symbol.for('@vercel/request-context')]?.get?.(); if (c && c.waitUntil) { c.waitUntil(p); return null; } return p; };
+const waitUntil = () => { const c = globalThis[Symbol.for('@vercel/request-context')]?.get?.(); return c && c.waitUntil ? p => c.waitUntil(p) : null; };
 async function put(a, ex) {
   const o = opt(ex), fin = a.status !== 'in_progress' && !a.synced && !!o.sheetUrl;
   await r.set(aKey(a.eid, a.sid), a);
   if (a.status !== 'in_progress') await r.sadd('ad:' + a.eid, norm(a.sid));   // finished-attempts list, so the dashboard can count without loading attempts
   if (!fin) return;
-  const sync = async () => {
+  const sync = async held => {   // held: the caller already owns this attempt's lock
     const K = (await getK(ex));
     const x = analyze(ex, K, [a]).atts[0];
     const res = await pushSheet(o.sheetUrl, o.sheetKey, { title: ex.title, rows: [sheetRow(x)] }, 8000);
-    if (res.ok) { const cur = await r.get(aKey(a.eid, a.sid)); if (cur) { cur.synced = true; await r.set(aKey(a.eid, a.sid), cur); } }
+    if (!res.ok) return;
+    const mark = async () => { const cur = await r.get(aKey(a.eid, a.sid)); if (cur) { cur.synced = true; await r.set(aKey(a.eid, a.sid), cur); } };
+    if (held) await mark(); else await withLock(a.eid + ':' + norm(a.sid), mark);
   };
-  const job = later(sync().catch(() => { /* the professor can press "Send all results now" */ }));
-  if (job) await job;
+  const wu = waitUntil(), quiet = () => { /* the professor can press "Send all results now" */ };
+  if (wu) wu(sync(false).catch(quiet)); else await sync(true).catch(quiet);
 }
 
 const aKey = (eid, sid) => 'a:' + eid + ':' + norm(sid);
@@ -516,12 +441,39 @@ const examInfo = (ex, school, owner) => {
   return {
     id: ex.id, open: isOpen(ex), status: ex.status, now: Date.now(), opens: o.opens, closes: o.closes, title: ex.title, school, by: owner,
     n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), maxLeaves: ex.maxLeaves, fu: o.followUps, spot: o.spot, spotMins: o.spotMins,
-    s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet },
+    s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet, pin: !!o.pin },
   };
 };
 
+/* ---------------- one writer per attempt ---------------- */
+/* an attempt is read, changed and saved whole, so two requests for the same student (an answer and an event, say) could overwrite each other.
+   This short lock makes them take turns. It expires by itself, so a crashed request can never block a student. */
+const sleep = ms => new Promise(ok => setTimeout(ok, ms));
+async function withLock(key, fn) {
+  const k = 'lk:' + key;
+  for (let i = 0; i < 20; i++) {
+    if (await r.set(k, 1, { nx: true, px: 6000 })) {
+      try { return await fn(); } finally { await r.del(k).catch(() => {}); }
+    }
+    await sleep(80 + Math.random() * 120);
+  }
+  throw err('The server is busy. Please try again in a moment.', 503);
+}
+const LOCKED = new Set(['start', 'answer', 'event', 'upload', 'unlock', 'review', 'reset']);
+/* read-mostly actions (the 30 s state check, results) only take the lock when the clock actually moved the attempt on, which saves database calls */
+async function fresh(b) {
+  const first = await loadAtt(b), before = JSON.stringify(first.a);
+  await adv(first.a, first.ex);
+  if (JSON.stringify(first.a) === before) return first;
+  return withLock(b.eid + ':' + norm(b.sid), async () => { const f = await loadAtt(b); await adv(f.a, f.ex); await put(f.a, f.ex); return f; });
+}
+
 /* ---------------- routes ---------------- */
 async function route(b, ip) {
+  if (LOCKED.has(b.action) && eidOk(b.eid) && b.sid) return withLock(b.eid + ':' + norm(b.sid), () => run(b, ip));
+  return run(b, ip);
+}
+async function run(b, ip) {
   switch (b.action) {
     /* ---------- accounts ---------- */
     case 'register': {
@@ -609,6 +561,7 @@ async function route(b, ip) {
       if (!raw.length) throw err('Add at least one question.');
       const qs = [], key = [];
       raw.forEach((q, i) => { const c = cleanQ(q, i); qs.push(c.item); key.push(c.key); });
+      if (JSON.stringify(qs).length + JSON.stringify(key).length > LIM.bytes) throw err('This exam is too large to save. Shorten some questions or split it into two exams.');
       if (ex.questions.length && ((await r.scard('as:' + ex.id)) || 0) > 0) {
         const oldKey = await getK(ex);
         if (JSON.stringify(ex.questions) !== JSON.stringify(qs) || JSON.stringify(oldKey) !== JSON.stringify(key)) {
@@ -723,8 +676,13 @@ async function route(b, ip) {
         if (a) {
           const before = JSON.stringify(a);
           await adv(a, ex);
-          if (JSON.stringify(a) !== before) await put(a, ex);
-          my = await V(a, ex);
+          if (JSON.stringify(a) !== before) {   // something moved on: redo it under the lock, on the freshest copy
+            my = await withLock(ex.id + ':' + norm(sid), async () => {
+              const f = await r.get(aKey(ex.id, sid));
+              if (!f || f.token !== a.token) return null;
+              await adv(f, ex); await put(f, ex); return V(f, ex);
+            });
+          } else my = await V(a, ex);
         }
         const ow = await r.get('u:' + ex.owner);
         out.push({ ...examInfo(ex, sc.name, ow ? ow.name : ''), my });
@@ -737,6 +695,7 @@ async function route(b, ip) {
       return examInfo(ex, sc ? sc.name : '', ow ? ow.name : '');
     }
     case 'start': {
+      await throttle('start', ip, 1500, 600);   // generous: a whole class shares one school IP
       const ex = await pubEx(b.eid);
       const name = str(b.name, 80), sid = str(b.sid, 40);
       if (!name || !sid) throw err('Enter your name and student ID');
@@ -752,6 +711,8 @@ async function route(b, ip) {
         }
       } else {
         if (!isOpen(ex)) throw err('The exam is not open');
+        const pin = opt(ex).pin;   // optional exam code, given out in the room: stops someone typing a classmate's ID from home
+        if (pin && norm(b.pin) !== norm(pin)) throw err('Enter the exam code your professor gave you.', 403);
         const rs = opt(ex).roster;
         if (rs.length && !rs.includes(norm(sid))) throw err('Your ID is not on the class list');
         const seed = crypto.randomBytes(6).toString('hex');
@@ -766,10 +727,7 @@ async function route(b, ip) {
       return { token: a.token, view: await V(a, ex) };
     }
     case 'state': {
-      const { a, ex } = await loadAtt(b);
-      const before = JSON.stringify(a);
-      await adv(a, ex);
-      if (JSON.stringify(a) !== before) await put(a, ex);
+      const { a, ex } = await fresh(b);
       return { view: await V(a, ex) };
     }
     case 'answer': {
@@ -808,10 +766,7 @@ async function route(b, ip) {
       return { view: await V(a, ex) };
     }
     case 'myresult': {
-      const { a, ex } = await loadAtt(b);
-      const before = JSON.stringify(a);
-      await adv(a, ex);
-      if (JSON.stringify(a) !== before) await put(a, ex);
+      const { a, ex } = await fresh(b);
       const o = opt(ex);
       if (a.status === 'in_progress') throw err('Finish the exam first.', 403);
       if (!o.showScore && !o.showReview) throw err('Your professor has not released results for this exam.', 403);

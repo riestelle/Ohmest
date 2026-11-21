@@ -12,7 +12,7 @@ const attKey = () => { const w = student(); return 'oh_att:' + (w ? w.code + ':'
 const attempts = () => { try { return JSON.parse(ls.get(attKey()) || '{}') || {}; } catch (e) { return {}; } };
 const saveAttempt = (eid, token) => ls.set(attKey(), JSON.stringify({ ...attempts(), [eid]: token }));
 
-const signOut = () => { TK = ''; ls.del('oh_tk'); ls.del('oh_me'); ls.del('oh_stu', sessionStorage); ls.del('oh_att', sessionStorage); };
+const signOut = () => { TK = ''; ls.del('oh_tk'); ls.del('oh_me'); ls.del('oh_stu', sessionStorage); };
 
 async function api(action, d = {}) {
   const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, token: TK, ...d }) });

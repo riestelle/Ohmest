@@ -22,8 +22,7 @@ $('f').addEventListener('submit', async ev => {
   $('go').disabled = true;
   try {
     const s = await api('school', { code });
-    // a different person on a shared browser must not inherit the previous attempts
-    if (prev.sid && (prev.sid.toLowerCase() !== sid.toLowerCase() || prev.code !== s.code)) ls.del('oh_att', sessionStorage);
+    // attempt tokens are stored per school code + student ID, so a different person on a shared browser never sees the previous one's
     ls.set('oh_stu', JSON.stringify({ code: s.code, school: s.name, name, sid }), sessionStorage); ls.set('oh_code', s.code);
     location.href = 'student.html';
   } catch (e) { show(e.message); $('go').disabled = false; }

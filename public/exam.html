@@ -50,7 +50,8 @@ function intro(msg = '') {
   app.innerHTML = `<div class="${CARD}"><h1 style="font-size:26px;font-weight:700">${esc(i.title)}</h1>
 <p class="mu" style="margin-top:4px">${esc(i.school)} · ${i.n} questions · about ${Math.ceil(i.sec / 60)} min · ${esc(S.name)} (${esc(S.sid)})</p>
 <ul style="padding-left:20px;margin:20px 0 0;display:grid;gap:8px;font-size:14px">${rules.map(r => '<li>' + esc(r) + '</li>').join('')}</ul>
-<p class="bad" style="margin-top:16px;font-size:14px" id="imsg">${esc(msg)}</p>
+${i.s.pin && !resume ? '<div style="margin-top:16px"><label for="pin" style="font-weight:600;font-size:14px">Exam code</label><input class="xin" id="pin" autocomplete="off" autocapitalize="characters" placeholder="Given by your professor" style="margin-top:6px;text-transform:uppercase;letter-spacing:.1em" onkeydown="if(event.key===\'Enter\')begin()"></div>' : ''}
+<p class="bad" style="margin-top:16px;font-size:14px" id="imsg" role="alert">${esc(msg)}</p>
 <div class="top-row" style="margin-top:24px"><button class="btn" id="go" onclick="begin()" type="button">${resume ? 'Resume exam' : 'Start exam'}</button><a class="btn sec" href="student.html">Back</a></div></div>`;
 }
 async function begin() {
@@ -58,7 +59,7 @@ async function begin() {
   const fsP = S.info.s.fsTrack ? tryFs() : Promise.resolve(false);     // must be requested inside the click
   const prev = savedAtt();
   try {
-    const j = await api('start', { eid: EID, code: S.code, name: S.name, sid: S.sid, token: prev ? prev.token : undefined });
+    const j = await api('start', { eid: EID, code: S.code, name: S.name, sid: S.sid, token: prev ? prev.token : undefined, pin: $('pin') ? $('pin').value : '' });
     S.token = j.token;
     saveAttempt(EID, j.token);
     const ok = await fsP;
@@ -154,14 +155,44 @@ function tools() {
   document.body.appendChild(d);
 }
 const ci = k => { $('cx').value += k === 'e' ? '2.718281828' : k; };
+/* the calculator is a small hand-written parser: no eval, no Function(). Angles are in degrees. */
+function calcEval(src) {
+  const D = Math.PI / 180;
+  const FN = { sin: x => Math.sin(x * D), cos: x => Math.cos(x * D), tan: x => Math.tan(x * D), asin: x => Math.asin(x) / D, acos: x => Math.acos(x) / D, atan: x => Math.atan(x) / D, log: Math.log10, ln: Math.log, sqrt: Math.sqrt };
+  const s = String(src).replace(/π/g, 'pi').replace(/√/g, 'sqrt').replace(/\*\*/g, '^').replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/(\d)E([-+]?\d)/g, '$1e$2');
+  if (s.length > 200) throw new Error('long');
+  const T = s.match(/(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?|[A-Za-z]+|[()+\-*/^]|\S/g) || [];
+  let p = 0;
+  const peek = () => T[p], next = () => T[p++], isNum = t => /^(?:\d|\.\d)/.test(t || ''), isId = t => /^[A-Za-z]/.test(t || '');
+  function atom() {
+    const t = next();
+    if (t === undefined) throw new Error('end');
+    if (t === '(') { const v = expr(); if (next() !== ')') throw new Error(')'); return v; }
+    if (isNum(t)) return parseFloat(t);
+    if (t === 'pi') return Math.PI;
+    if (t === 'e') return Math.E;
+    if (isId(t) && Object.prototype.hasOwnProperty.call(FN, t)) { if (next() !== '(') throw new Error('('); const v = expr(); if (next() !== ')') throw new Error(')'); return FN[t](v); }
+    throw new Error('token');
+  }
+  function power() { const b = atom(); if (peek() === '^') { next(); return Math.pow(b, unary()); } return b; }
+  function unary() { if (peek() === '-') { next(); return -unary(); } if (peek() === '+') { next(); return unary(); } return power(); }
+  function term() {
+    let v = unary();
+    for (;;) {
+      const t = peek();
+      if (t === '*' || t === '/') { next(); const x = unary(); v = t === '*' ? v * x : v / x; }
+      else if (t === '(' || isNum(t) || isId(t)) v *= unary();          // 2(3+1), 2pi
+      else return v;
+    }
+  }
+  function expr() { let v = term(); while (peek() === '+' || peek() === '-') { const o = next(), x = term(); v = o === '+' ? v + x : v - x; } return v; }
+  const v = expr();
+  if (p < T.length || !isFinite(v)) throw new Error('bad');
+  return v;
+}
 function cc() {
-  try {
-    // log( must be rewritten before ln( : ln( becomes Math.log( which would otherwise match log( again
-    let s = $('cx').value.replace(/π/g, 'Math.PI').replace(/√\(/g, 'Math.sqrt(').replace(/\^/g, '**').replace(/\blog\(/g, 'Math.log10(').replace(/\bln\(/g, 'Math.log(').replace(/(\d)E(-?\d)/g, '$1e$2').replace(/\b(a?(?:sin|cos|tan))\(/g, '$1d(');
-    const t = s.replace(/Math\.(PI|sqrt|log10|log)|a?(sin|cos|tan)d/g, ''); if (/[^0-9+\-*/().e\s]/.test(t)) throw 0;
-    const Dg = Math.PI / 180, f = Function('sind', 'cosd', 'tand', 'asind', 'acosd', 'atand', 'return(' + s + ')')(x => Math.sin(x * Dg), x => Math.cos(x * Dg), x => Math.tan(x * Dg), x => Math.asin(x) / Dg, x => Math.acos(x) / Dg, x => Math.atan(x) / Dg);
-    $('cr').textContent = isFinite(f) ? '= ' + (+f.toPrecision(10)) : 'Error';
-  } catch (e) { $('cr').textContent = 'Error'; }
+  try { $('cr').textContent = '= ' + (+calcEval($('cx').value).toPrecision(10)); }
+  catch (e) { $('cr').textContent = 'Error'; }
 }
 function flagQ(b) { ev('flag'); b.textContent = 'Reported'; b.disabled = true; }
 

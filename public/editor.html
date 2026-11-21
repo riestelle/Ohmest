@@ -5,10 +5,11 @@
 <div id="ftr"></div>
 <script src="common.js"></script>
 <script src="math.js"></script>
+<script src="xlsx-lite.js"></script>
 <script>
 /* PROFESSOR PAGE. Every action here is checked by the server with a signed login token. */
 /* DEF = what a new exam starts with. LEG = what an older exam gets for settings it never had (so nothing changes for it). */
-const DEF = { shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, showKey: false, release: 'closed', calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '', maxLeaves: 3, defTime: 30, defPts: 1, defTol: 2 };
+const DEF = { shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, showKey: false, release: 'closed', calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '', pin: '', maxLeaves: 3, defTime: 30, defPts: 1, defTol: 2 };
 const LEG = { ...DEF, showScore: false, showReview: false, showKey: false, release: 'finish' };
 const EID = new URLSearchParams(location.search).get('id') || '';
 let SCH = null, cfg = null, qs = [], SET = { ...DEF }, title = '', atts = [], qstat = [], tab = 'q', open = new Set(), poll = null, IMG = {};
@@ -92,8 +93,8 @@ const sw = (k, label) => `<label class="sw"><input type="checkbox" data-s="${k}"
 const nin = (k, min, max, unit, step) => `<input type="number" min="${min}" ${max != null ? 'max="' + max + '"' : ''} ${step ? 'step="' + step + '"' : ''} data-s="${k}" value="${SET[k]}">${unit ? '<span class="mu">' + unit + '</span>' : ''}`;
 const sec = (ic, h, sub, rows) => `<section class="sec"><h3><span class="ms">${ic}</span>${h}</h3>${sub ? '<p class="sub">' + sub + '</p>' : ''}${rows}</section>`;
 function resetSet() {
-  if (!confirm('Reset every setting to its default? Your class list, schedule and Google Sheets details are kept.')) return;
-  const keep = { roster: SET.roster, opens: SET.opens, closes: SET.closes, sheetUrl: SET.sheetUrl, sheetKey: SET.sheetKey };
+  if (!confirm('Reset every setting to its default? Your class list, exam code, schedule and Google Sheets details are kept.')) return;
+  const keep = { roster: SET.roster, opens: SET.opens, closes: SET.closes, sheetUrl: SET.sheetUrl, sheetKey: SET.sheetKey, pin: SET.pin };
   SET = { ...DEF, ...keep }; touch(); toast('Settings reset to defaults. Remember to Save.');
 }
 function applyDefaults() {
@@ -134,6 +135,8 @@ function profS() {
       row('Follow-up questions', 'After the exam, each student gets up to this many short questions about problems they answered correctly. Max 3.', nin('followUps', 0, 3), 'followUps')
       + row('Handwritten work photos', 'How many of each student’s problems to ask a photo of their written solution for. Max 3.', nin('spot', 0, 3), 'spot')
       + row('Time to upload photos', 'How long students have after finishing.', nin('spotMins', 1, 1440, 'minutes'), 'spotMins'))
+    + sec('pin', 'Exam code (optional)', 'Student IDs are not verified, so anyone with the school code could type a classmate’s ID and start first. A code you say out loud in the room (or show on the board) stops that.',
+      row('Exam code', 'Students type it before they start. Leave empty for no code. Students who already started are not asked again.', `<input data-s="pin" maxlength="20" autocomplete="off" placeholder="e.g. ROOM7" value="${esc(SET.pin || '')}" style="text-transform:uppercase;letter-spacing:.08em">`, 'pin'))
     + sec('groups', 'Class list', 'Only these student IDs can enter. Leave empty to let anyone from your school in.',
       `<div class="srow col"><textarea data-s="roster" placeholder="One student ID per line" style="min-height:100px">${esc(Array.isArray(SET.roster) ? SET.roster.join('\n') : String(SET.roster || ''))}</textarea></div>`)
     + `<section class="sec"><details ${SET.sheetUrl ? 'open' : ''}><summary><span class="ms">table_view</span>Google Sheets (optional)</summary>
@@ -292,21 +295,8 @@ document.addEventListener('click', async e => {
 async function sendAnn(c) { try { await A('announce', { text: c ? '' : $('an').value }); if (c) $('an').value = ''; alert(c ? 'Cleared' : 'Sent to everyone taking the exam'); } catch (e) { alert(e.message); } }
 async function pushNow(b) { b.disabled = true; try { const j = await A('sheetPush', { url: SET.sheetUrl, key: SET.sheetKey }); alert('Sent ' + j.n + ' row(s) to Google Sheets.'); } catch (e) { alert(e.message); } b.disabled = false; }
 
-/* the Excel library is only fetched when you click Download, so a slow or blocked CDN never slows the page; if it cannot load, you get a CSV instead */
-let _xl = null;
-const loadXlsx = () => _xl || (_xl = new Promise((ok, no) => {
-  if (typeof XLSX !== 'undefined') return ok();
-  const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-  s.onload = ok; s.onerror = () => { _xl = null; no(new Error('blocked')); }; document.head.appendChild(s);
-}));
-function saveCsv(rows, name) {
-  const cell = c => { c = c ?? ''; if (typeof c === 'string' && /^[=+\-@\t\r]/.test(c)) c = "'" + c; return '"' + String(c).replace(/"/g, '""') + '"'; };
-  const u = URL.createObjectURL(new Blob(['\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a'); a.href = u; a.download = name + ' results.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000);
-}
 async function exportX() {
-  let xl = true; try { await loadXlsx(); } catch (e) { xl = false; }
-  const wb = xl ? XLSX.utils.book_new() : null, Q = cfg.questions;
+  const Q = cfg.questions;
   const mark = r => r.ok === -1 ? '—' : r.ok ? 'Correct' : r.to ? 'Timed out' : 'Wrong';
   const res = [['Student', 'Student ID', 'Status', 'Score', 'Total', 'Percent', 'Integrity risk', 'Flags', 'Professor review', 'Times left exam', 'Seconds away', 'Work photos', 'Receipt', ...Q.map((_, i) => 'Q' + (i + 1))]];
   const ans = [['Student', 'Student ID', 'Q', 'Their numbers', 'Their answer', 'Expected', 'Result', 'Seconds']];
@@ -321,9 +311,7 @@ async function exportX() {
   const item = [['Q#', 'Question', 'Correct answer', '% correct', 'Avg seconds', 'Time limit']];
   qstat.forEach(q => item.push([q.n, q.q, q.key, q.pct == null ? '' : Math.round(q.pct * 100) / 100, q.avg == null ? '' : Math.round(q.avg / 100) / 10, q.t]));
   const nm = (cfg.title || 'exam').replace(/[^\w\- ]/g, '');
-  if (!xl) { saveCsv(res, nm); toast('The Excel library could not load, so a CSV of the results was downloaded instead.'); return; }
-  [['Results', res], ['Answers', ans], ['Flags', flg], ['Item analysis', item], ['Activity log', log]].forEach(([n, d]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(d), n));
-  XLSX.writeFile(wb, nm + ' results.xlsx');
+  XlsxLite.save([['Results', res], ['Answers', ans], ['Flags', flg], ['Item analysis', item], ['Activity log', log]], nm + ' results.xlsx');   // built in: no CDN, works offline
 }
 const markDirty = e => { const t = e.target; if (tab === 'r' || !t.closest || !t.closest('#app') || ['an', 'imt'].includes(t.id) || t.type === 'file') return; setDirty(true); };
 document.addEventListener('input', markDirty, true); document.addEventListener('change', markDirty, true);

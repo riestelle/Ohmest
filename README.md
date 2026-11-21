@@ -76,6 +76,7 @@ Open the **Settings** tab. Every option shows its default, and **Reset to defaul
 | **After the exam** | When students see results, and whether they see their score, a question-by-question review, and the correct answers. |
 | **Student tools** | A built-in calculator and formula sheet, plus your own extra formulas or notes. |
 | **Integrity checks** | Follow-up questions, and handwritten-work photos (see below). |
+| **Exam code** | Optional. A short code you say out loud or write on the board; students type it before they start. It stops someone at home from typing a classmate's ID first. |
 | **Class list** | Paste the student IDs allowed to enter. Leave it empty to let anyone from your school in. |
 | **Google Sheets** | Send each finished attempt to a spreadsheet (see [Live results in Google Sheets](#live-results-in-google-sheets)). |
 
@@ -115,7 +116,7 @@ Tap a student's name to see details and their activity log. Then mark them **Cle
 
 **Item analysis** shows which questions the class missed and how long they took.
 
-Click **Download Excel (.xlsx)** for a workbook with results, every answer, flags, item analysis and a full activity log. If your connection can't load the Excel library, you get a CSV of the results table instead.
+Click **Download Excel (.xlsx)** for a workbook with results, every answer, flags, item analysis and a full activity log. The Excel file is built inside the page, so it works offline too.
 
 ### 7. Running the same exam again
 
@@ -165,7 +166,7 @@ Use **Send all results now** to push everything that's already finished.
 
 You can type `3.5`, `1/4`, `3x10^8`, `3e8`, `2pi` or `sqrt(2)`. A "Reads as…" line shows you how fractions and powers were understood.
 
-> **Heads up:** a comma is read as a decimal point, so `3,5` means 3.5. Type 1500, not 1,500.
+Commas work like this: a comma followed by exactly three digits is a thousands separator (`1,500` is 1500), and any other single comma is a decimal comma (`3,5` is 3.5). Anything typed after the number is treated as the unit and ignored, so `9.8 m/s` and `1/2 kg` are read as 9.8 and 0.5. The letter `e` only counts inside notation like `3e8`.
 
 ### Your receipt and results
 
@@ -284,7 +285,7 @@ Edit a file on GitHub (or upload a new version) and commit. Vercel redeploys on 
 | "Page not found" on `/student-login` | `vercel.json` isn't at the top level of the repository. Move it there. |
 | The page loads but nothing works | Press F12, open the **Network** tab and click the `/api` request. Its error message says what's missing. |
 | "Too many attempts" | A built-in limit on sign-ins and codes. Wait a few minutes. |
-| Icons are missing, or the Excel download gives a CSV | The page couldn't load the icon font or the Excel library from the internet. Everything still works; check the connection and refresh if you want the icons or the .xlsx. |
+| Icons are missing | The page couldn't load the icon font from Google Fonts. Everything still works (icons stay hidden instead of showing words); check the connection and refresh to get them. |
 
 ### For developers: run it on your computer
 
@@ -294,7 +295,7 @@ npm install
 vercel dev
 ```
 
-Before running, create a file named `.env.local` in the project folder containing the same three values as above:
+Before running, copy `.env.example` to `.env.local` in the project folder and fill in the same three values as above:
 
 ```
 AUTH_SECRET=your-long-random-string
@@ -302,7 +303,9 @@ UPSTASH_REDIS_REST_URL=...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-There's no build step: the site is plain HTML in `public/`, with one serverless function in `api/index.js` and a Redis database.
+There's no build step: the site is plain HTML in `public/`, with one serverless function in `api/index.js` and a Redis database. The number parser and formula evaluator live in `lib/calc.js`; run `npm test` to check them (no database needed).
+
+An attempt is saved whole, so the server takes a short per-student lock (stored in Redis, expires after 6 seconds) while it changes one. That keeps an answer and a tab-leave event that arrive together from overwriting each other.
 
 ---
 
@@ -310,12 +313,13 @@ There's no build step: the site is plain HTML in `public/`, with one serverless 
 
 **Where your data lives.** Everything is stored in your own Upstash database. Students are identified only by the name and ID they type. Professors' passwords are salted and hashed. Handwritten-work photos are stored in the database and deleted when you reset a student, clear attempts or delete the exam. If you use Google Sheets, a copy of the results (names, IDs, scores, flags) also lives in your sheet.
 
-**Outside services.** The pages load fonts from Google Fonts and the Excel export library from a public CDN (cdnjs).
+**Outside services.** The pages load fonts and icons from Google Fonts. Nothing else is fetched from the internet; the Excel export is built in.
 
 **Good to know**
 
 - Each student page checks in with the server every 30 seconds (for announcements and timers), so a big class makes a lot of database requests. If you hit your free Upstash limit, move to a paid plan or spread sittings out.
-- Student IDs aren't verified. Anyone who has your school code could type any ID. Use a **Class list**, and keep an eye on the Results tab.
+- Student IDs aren't verified. Anyone who has your school code could type any ID. Set an **Exam code** you give out in the room, use a **Class list**, and keep an eye on the Results tab.
+- Exams are capped at 200 questions, 10 choices per question, 3,000 characters per question and 1 hour per question, and the whole exam must stay under about 700 KB.
 - One attempt per student ID, and an attempt belongs to the browser it started in.
 - Questions are multiple choice or numeric. There's no partial credit, and no pictures in questions yet.
 - There's no password reset yet.
