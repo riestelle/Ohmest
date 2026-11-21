@@ -12,6 +12,7 @@
 <div class="top-row" style="margin-top:16px"><button class="btn" id="cgo" type="button">Find results</button><button class="btn sec" id="ccx" type="button">Cancel</button></div></div></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="sheet"><div class="mu" id="mby"></div><h2 id="mt"></h2><ul id="mul"></ul>
 <div class="top-row"><button class="btn" id="mgo" type="button"></button><button class="btn sec" id="mx" type="button">Close</button></div></div></div>
+<div class="modal" id="rmodal" role="dialog" aria-modal="true" aria-labelledby="rt"><div class="sheet"><h2 id="rt">Exam submitted</h2><div id="rbody" class="mu" style="margin-bottom:14px;display:grid;gap:4px"></div><div class="recap" id="rrec"></div><div class="top-row"><button class="btn" id="rcopy" type="button">Copy receipt</button><button class="btn sec" id="rx" type="button">Close</button></div></div></div>
 <div id="ftr"></div>
 <script src="common.js"></script>
 <script>
@@ -51,10 +52,27 @@ async function load() {
 }
 $('tabs').onclick = ev => { const b = ev.target.closest('[data-f]'); if (b) { FILTER = b.dataset.f; render(); } };
 $('list').onclick = ev => { const b = ev.target.closest('[data-v]'); if (b) openM(b.dataset.v); };
+let RC = '';
+function showRcpt(m) {
+  m = m || {};
+  const lk = m.status === 'locked';
+  $('rt').textContent = lk ? 'Exam locked' : 'Exam submitted';
+  const L = [lk ? 'Your exam was locked. Please see your professor.' : 'Your answers were recorded.'];
+  if (m.later) L.push('Results will be available after your professor closes the exam.');
+  if (m.score !== undefined) L.push('Score: ' + m.score + ' / ' + m.of);
+  $('rbody').innerHTML = L.map(x => '<div>' + esc(x) + '</div>').join('');
+  RC = m.receipt || '';
+  $('rrec').style.display = RC ? '' : 'none'; $('rcopy').style.display = RC ? '' : 'none';
+  $('rrec').innerHTML = RC ? '<div class="rw"><span>Receipt</span><b style="user-select:all;-webkit-user-select:all">' + esc(RC) + '</b></div>' : '';
+  $('rmodal').classList.add('on');
+}
+$('rcopy').onclick = async () => { toast(await copyText(RC) ? 'Receipt copied' : 'Select the receipt and copy it'); };
+$('rx').onclick = () => $('rmodal').classList.remove('on');
+$('rmodal').onclick = ev => { if (ev.target === $('rmodal')) $('rmodal').classList.remove('on'); };
 function openM(id) {
   const e = EX.find(x => x.id === id); if (!e) return; const k = kind(e);
   if (k === 'closed' && e.my.canReview) { location.href = 'result.html?id=' + e.id; return; }
-  if (k === 'closed') { const m = e.my; alert((m.later ? 'Your answers were recorded. Results will be available after your professor closes the exam.\n' : '') + (m.status === 'locked' ? 'Your exam was locked. Please see your professor.\n' : 'Your answers were recorded.\n') + (m.score !== undefined ? 'Score: ' + m.score + ' / ' + m.of + '\n' : '') + (m.receipt ? 'Receipt: ' + m.receipt : '')); return; }
+  if (k === 'closed') { showRcpt(e.my); return; }
   CUR = e; const open = k === 'open';
   $('mby').textContent = e.school; $('mt').textContent = e.title;
   $('mul').innerHTML = [e.n + (e.n === 1 ? ' question' : ' questions') + ' · about ' + Math.max(1, Math.ceil(e.sec / 60)) + ' minutes', 'Each question has its own timer and you cannot go back.', e.maxLeaves > 0 ? 'Leaving the exam ' + e.maxLeaves + ' time' + (e.maxLeaves === 1 ? '' : 's') + ' locks it.' : '', e.s.calc ? 'A calculator and formula sheet are provided.' : '', open ? (e.closes ? 'Closes ' + whenTxt(e.closes) : 'Open until your professor closes it') : 'Opens ' + whenTxt(e.opens)].filter(Boolean).map(x => '<li>' + esc(x) + '</li>').join('');

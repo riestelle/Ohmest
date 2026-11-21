@@ -96,7 +96,7 @@ function setView(v) {
 <p class="mu" style="margin:0 0 24px">${lk ? 'You left the exam too many times, so it was locked. Your answers so far were saved. Please see your professor.' : 'Your answers were recorded.' + (v.canReview || v.later || v.score !== undefined ? '' : ' Your professor will share results.')}</p>
 <div class="recap">${v.score !== undefined ? `<div class="rw"><span>Score</span><b style="color:var(--ok);font-size:18px">${esc(v.score)} / ${esc(v.of)}</b></div>` : ''}
 ${v.later ? '<div class="rw"><span>Results</span><b style="font-family:Inter,sans-serif;font-weight:500">Available after your professor closes the exam</b></div>' : ''}
-<div class="rw"><span>Submission receipt</span><b>${esc(v.receipt || '')}</b></div><div class="mu" style="font-size:12px">Screenshot the receipt as proof you finished.</div></div>
+<div class="rw"><span>Submission receipt</span><b style="user-select:all;-webkit-user-select:all">${esc(v.receipt || '')}</b></div><button class="btn sec" type="button" onclick="copyText('${esc(v.receipt || '')}').then(ok => toast(ok ? 'Receipt copied' : 'Select the receipt and copy it'))">Copy receipt</button><div class="mu" style="font-size:12px">Copy or screenshot the receipt as proof you finished.</div></div>
 ${v.work ? workUI(v.work) : ''}
 ${v.canReview ? '<a class="btn block" style="margin-bottom:10px" href="result.html?id=' + encodeURIComponent(EID) + '"><span class="ms">fact_check</span>View my results</a>' : ''}
 <a class="btn ${v.canReview ? 'sec ' : ''}block" href="student.html">Back to exams</a></div>`;

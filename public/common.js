@@ -41,3 +41,10 @@ function chrome({ nav = [], active = '', who = null, home = 'index.html', logout
     $('out').onclick = () => { signOut(); location.href = logout; };
   }
 }
+
+/* copy text to clipboard (works on http/https and old browsers) */
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
+  const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} a.remove(); return ok;
+}
