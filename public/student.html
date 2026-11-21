@@ -5,7 +5,11 @@
 <section class="head"><div><h1>Exams</h1><p>Exams your professors have opened for you</p></div></section>
 <div class="tabs-f" id="tabs" role="tablist"></div>
 <div id="list" style="display:flex;flex-direction:column;gap:16px"></div>
+<p class="mu" style="text-align:center">Finished an exam on another device or browser? <a href="#" id="find">Find my results</a></p>
 </main>
+<div class="modal" id="cm" role="dialog" aria-modal="true" aria-labelledby="ct"><div class="sheet"><h2 id="ct">Find my results</h2><p class="mu" style="margin:0 0 16px">Enter the receipt code you saw when you submitted. It looks like <code>1A2B3C4D-XY12</code>.</p>
+<div class="fld"><label for="rcp">Receipt code</label><input id="rcp" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.06em"></div><div class="alert err hidden" id="cerr" role="alert"></div>
+<div class="top-row" style="margin-top:16px"><button class="btn" id="cgo" type="button">Find results</button><button class="btn sec" id="ccx" type="button">Cancel</button></div></div></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="sheet"><div class="mu" id="mby"></div><h2 id="mt"></h2><ul id="mul"></ul>
 <div class="top-row"><button class="btn" id="mgo" type="button"></button><button class="btn sec" id="mx" type="button">Close</button></div></div></div>
 <div id="ftr"></div>
@@ -26,7 +30,8 @@ function card(e) {
   let meta = `<span>${ic('quiz')}${e.n} question${e.n === 1 ? '' : 's'}</span>`, btn;
   if (k === 'closed') {
     meta += sep + `<span>${ic('event_available')}Completed ${e.my.finished ? dt(e.my.finished) : ''}</span>` + (m.score !== undefined ? sep + `<span class="ok" style="font-weight:600">${ic('military_tech')}Score ${esc(m.score)}/${esc(m.of)}</span>` : '');
-    btn = `<button class="btn sec" data-v="${e.id}" type="button"><span class="ms">receipt_long</span>View summary</button>`;
+    btn = m.canReview ? `<button class="btn" data-v="${e.id}" type="button"><span class="ms">fact_check</span>View results<span class="ms">arrow_forward</span></button>` : `<button class="btn sec" data-v="${e.id}" type="button"><span class="ms">receipt_long</span>View summary</button>`;
+    if (m.later) meta += sep + `<span>${ic('hourglass_top')}Results after your professor closes the exam</span>`;
   } else {
     meta += sep + `<span>${ic('timer')}About ${mins} min</span>` + sep + (k === 'open' ? `<span>${ic('schedule')}${e.closes ? 'Closes ' + esc(whenTxt(e.closes)) : 'Open until your professor closes it'}</span>` : `<span>${ic('calendar_month')}Opens ${esc(whenTxt(e.opens))}</span>`);
     btn = k === 'open' ? `<button class="btn" data-v="${e.id}" type="button">${m ? 'Resume exam' : 'View exam'}<span class="ms">arrow_forward</span></button>` : `<button class="btn sec" data-v="${e.id}" type="button"><span class="ms">info</span>Details</button>`;
@@ -48,7 +53,8 @@ $('tabs').onclick = ev => { const b = ev.target.closest('[data-f]'); if (b) { FI
 $('list').onclick = ev => { const b = ev.target.closest('[data-v]'); if (b) openM(b.dataset.v); };
 function openM(id) {
   const e = EX.find(x => x.id === id); if (!e) return; const k = kind(e);
-  if (k === 'closed') { const m = e.my; alert((m.status === 'locked' ? 'Your exam was locked. Please see your professor.\n' : 'Your answers were recorded.\n') + (m.score !== undefined ? 'Score: ' + m.score + ' / ' + m.of + '\n' : '') + (m.receipt ? 'Receipt: ' + m.receipt : '')); return; }
+  if (k === 'closed' && e.my.canReview) { location.href = 'result.html?id=' + e.id; return; }
+  if (k === 'closed') { const m = e.my; alert((m.later ? 'Your answers were recorded. Results will be available after your professor closes the exam.\n' : '') + (m.status === 'locked' ? 'Your exam was locked. Please see your professor.\n' : 'Your answers were recorded.\n') + (m.score !== undefined ? 'Score: ' + m.score + ' / ' + m.of + '\n' : '') + (m.receipt ? 'Receipt: ' + m.receipt : '')); return; }
   CUR = e; const open = k === 'open';
   $('mby').textContent = e.school; $('mt').textContent = e.title;
   $('mul').innerHTML = [e.n + (e.n === 1 ? ' question' : ' questions') + ' · about ' + Math.max(1, Math.ceil(e.sec / 60)) + ' minutes', 'Each question has its own timer and you cannot go back.', e.maxLeaves > 0 ? 'Leaving the exam ' + e.maxLeaves + ' time' + (e.maxLeaves === 1 ? '' : 's') + ' locks it.' : '', e.s.calc ? 'A calculator and formula sheet are provided.' : '', open ? (e.closes ? 'Closes ' + whenTxt(e.closes) : 'Open until your professor closes it') : 'Opens ' + whenTxt(e.opens)].filter(Boolean).map(x => '<li>' + esc(x) + '</li>').join('');
@@ -59,5 +65,14 @@ const closeM = () => $('modal').classList.remove('on');
 $('mx').onclick = closeM; $('modal').onclick = ev => { if (ev.target === $('modal')) closeM(); };
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeM(); });
 $('mgo').onclick = () => { if (CUR) location.href = 'exam.html?id=' + CUR.id; };
+const showC = m => { $('cerr').textContent = m; $('cerr').classList.toggle('hidden', !m); };
+$('find').onclick = ev => { ev.preventDefault(); showC(''); $('cm').classList.add('on'); $('rcp').focus(); };
+$('ccx').onclick = () => $('cm').classList.remove('on');
+$('cgo').onclick = async () => {
+  showC(''); $('cgo').disabled = true;
+  try { const j = await api('claim', { code: W.code, sid: W.sid, receipt: $('rcp').value }); Object.entries(j.tokens).forEach(([eid, t]) => saveAttempt(eid, t)); $('cm').classList.remove('on'); toast('Found it'); load(); }
+  catch (e) { showC(e.message); }
+  $('cgo').disabled = false;
+};
 load(); setInterval(() => { if (!$('modal').classList.contains('on')) load(); }, 30000);
 </script></body></html>

@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><meta name="robots" content="noindex"><title>My results · Ohmest</title></head><body>
+<div id="hdr"></div>
+<main class="wrap narrow"><div id="app" style="display:flex;flex-direction:column;gap:20px"><p class="mu">Loading…</p></div></main>
+<div id="ftr"></div>
+<script src="common.js"></script>
+<script src="math.js"></script>
+<script>
+const W = student();
+if (!W) { location.replace('student-login.html'); throw 0; }
+chrome({ nav: [['Exams', 'student.html', 'e']], active: 'e', who: { name: W.name, sub: 'ID ' + W.sid + ' · ' + W.school }, logout: 'student-login.html' });
+const EID = new URLSearchParams(location.search).get('id') || '', TOKEN = attempts()[EID];
+const back = '<a class="btn" href="student.html"><span class="ms">arrow_back</span>Back to exams</a>';
+let R = null, ONLY_WRONG = false;
+const STATE = { right: ['check_circle', 'Correct'], wrong: ['cancel', 'Incorrect'], none: ['timer_off', 'No answer'] };
+
+function item(r) {
+  const [ic, lbl] = STATE[r.state];
+  return `<article class="rs-item ${r.state}"><div class="h"><span>Question ${r.n}</span><span class="vb ${r.state}"><span class="ms" style="font-size:16px">${ic}</span>${lbl} · ${r.pts} / ${r.of} pt${r.of === 1 ? '' : 's'}</span></div>
+<div class="q">${MathFmt.rich(r.q)}</div>
+<div class="a"><span>Your answer</span><b>${r.got ? MathFmt.rich(r.got) : '<span class="mu">Not answered (time ran out)</span>'}</b>${r.exp !== undefined ? `<span>Correct answer</span><b class="ok">${MathFmt.rich(r.exp)}</b>` : ''}</div></article>`;
+}
+function draw() {
+  const j = R, wrong = j.rows.filter(r => r.state !== 'right').length;
+  const list = j.rows.filter(r => !ONLY_WRONG || r.state !== 'right');
+  app.innerHTML = `<div class="head"><div><h1>${esc(j.title)}</h1><p>${esc(W.name)} · ID ${esc(W.sid)}</p></div>${back}</div>
+<section class="card"><div class="rs-top"><div><div class="mu" style="margin-bottom:4px">Your score</div><div class="rs-big">${esc(j.score)}<small> / ${esc(j.of)}</small></div></div>
+<div style="flex:1;min-width:220px"><div class="top-row" style="margin-bottom:8px"><span class="badge ${j.pct >= 50 ? 'open' : 'soon'}">${esc(j.pct)}%</span>${j.status === 'locked' ? '<span class="badge soon">Exam was locked</span>' : ''}</div><div class="bar"><i style="width:${Math.min(100, j.pct)}%"></i></div>
+${j.review ? `<p class="mu" style="margin:10px 0 0">${j.rows.length - wrong} of ${j.rows.length} questions fully correct</p>` : ''}</div></div>
+<p class="mu" style="margin:16px 0 0;font-size:12px">Receipt <b style="font-family:'JetBrains Mono',monospace">${esc(j.receipt)}</b>${j.finished ? ' · Submitted ' + esc(new Date(j.finished).toLocaleString()) : ''}</p></section>
+${j.review ? `<div class="top-row"><div class="tabs-f"><button class="${ONLY_WRONG ? '' : 'on'}" onclick="ONLY_WRONG=false;draw()" type="button">All questions (${j.rows.length})</button><button class="${ONLY_WRONG ? 'on' : ''}" onclick="ONLY_WRONG=true;draw()" type="button">Needs review (${wrong})</button></div></div>
+<div style="display:flex;flex-direction:column;gap:12px">${list.map(item).join('') || '<div class="empty"><h2>Nothing to review</h2><p>You got every question right.</p></div>'}</div>
+${j.showKey ? '' : '<p class="mu">Your professor has not released the correct answers.</p>'}` : ''}
+<div><button class="btn sec" onclick="window.print()" type="button"><span class="ms">print</span>Print or save as PDF</button></div>`;
+}
+(async () => {
+  if (!EID) { location.replace('student.html'); return; }
+  if (!TOKEN) { app.innerHTML = `<div class="empty"><div class="ic"><span class="ms">lock</span></div><h2>We can’t find your attempt on this browser</h2><p>Go back to your exams and use “Find my results” with the receipt code from when you submitted.</p>${back}</div>`; return; }
+  try { R = await api('myresult', { eid: EID, sid: W.sid, token: TOKEN }); draw(); }
+  catch (e) { app.innerHTML = `<div class="empty"><div class="ic"><span class="ms">hourglass_top</span></div><h2>Results aren’t available yet</h2><p>${esc(e.message)}</p>${back}</div>`; }
+})();
+</script></body></html>

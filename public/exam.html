@@ -4,6 +4,7 @@
 <div class="hidden" id="timer-section" style="padding:16px 24px 0"><div class="timerbox"><div class="t"><span>Per-question timer</span><b id="countdown-display"></b></div><div class="bar"><i id="timer-bar" style="width:100%"></i></div></div></div>
 <main class="xmain" id="app"><p class="mu">Loading…</p></main>
 <script src="common.js"></script>
+<script src="math.js"></script>
 <script>
 /* LIVE EXAM PAGE. The server owns the clock, the order and the answer key; this page only draws and reports. */
 const COARSE = matchMedia('(pointer:coarse)').matches;
@@ -92,11 +93,13 @@ function setView(v) {
     app.innerHTML = `<div class="qcard c">
 <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:30px;background:${lk ? '#FEF3C7' : '#BDF5D6'};color:${lk ? '#B45309' : '#1A7F4B'}">${lk ? '!' : '✓'}</div>
 <h1 style="font-size:26px;margin-bottom:8px">${lk ? 'Exam locked' : 'Exam submitted'}</h1>
-<p class="mu" style="margin:0 0 24px">${lk ? 'You left the exam too many times, so it was locked. Your answers so far were saved. Please see your professor.' : 'Your answers were recorded. Your professor will share results.'}</p>
+<p class="mu" style="margin:0 0 24px">${lk ? 'You left the exam too many times, so it was locked. Your answers so far were saved. Please see your professor.' : 'Your answers were recorded.' + (v.canReview || v.later || v.score !== undefined ? '' : ' Your professor will share results.')}</p>
 <div class="recap">${v.score !== undefined ? `<div class="rw"><span>Score</span><b style="color:var(--ok);font-size:18px">${esc(v.score)} / ${esc(v.of)}</b></div>` : ''}
+${v.later ? '<div class="rw"><span>Results</span><b style="font-family:Inter,sans-serif;font-weight:500">Available after your professor closes the exam</b></div>' : ''}
 <div class="rw"><span>Submission receipt</span><b>${esc(v.receipt || '')}</b></div><div class="mu" style="font-size:12px">Screenshot the receipt as proof you finished.</div></div>
 ${v.work ? workUI(v.work) : ''}
-<a class="btn block" href="student.html">Back to exams</a></div>`;
+${v.canReview ? '<a class="btn block" style="margin-bottom:10px" href="result.html?id=' + encodeURIComponent(EID) + '"><span class="ms">fact_check</span>View my results</a>' : ''}
+<a class="btn ${v.canReview ? 'sec ' : ''}block" href="student.html">Back to exams</a></div>`;
     return;
   }
   if (!S.timer) S.timer = setInterval(tick, 250);
@@ -107,19 +110,24 @@ ${v.work ? workUI(v.work) : ''}
 function showQ() {
   const v = S.v, num = v.type === 'num';
   $('timer-section').classList.remove('hidden');
-  const pb = $('progress-badge'); pb.style.display = ''; pb.textContent = (v.f ? 'Follow-up ' : 'Question ') + (v.cur + 1) + ' of ' + v.total;
+  const pb = $('progress-badge'); pb.style.display = ''; pb.textContent = (v.f ? 'Follow-up ' : 'Q ') + (v.cur + 1) + ' / ' + v.total;
   banners();
-  const tiles = v.choices.map((c, i) => `<button class="tile ${S.sel === c.i ? 'selected' : ''}" data-i="${c.i}" onclick="pick(${c.i})" type="button"><i>${L(i)}</i><span>${esc(c.t)}</span></button>`).join('');
-  const numIn = `<input class="xin" id="nv" inputmode="decimal" autocomplete="off" placeholder="Your answer (number)" value="${esc(S.num.v)}" oninput="S.num.v=this.value;setLock()">${S.info.s.units ? `<input class="xin" autocomplete="off" placeholder="Unit (e.g. N)" value="${esc(S.num.u)}" oninput="S.num.u=this.value">` : ''}`;
+  const tiles = v.choices.map((c, i) => `<button class="tile ${S.sel === c.i ? 'selected' : ''}" data-i="${c.i}" onclick="pick(${c.i})" type="button"><i>${L(i)}</i><span>${MathFmt.rich(c.t)}</span></button>`).join('');
+  const numIn = `<input class="xin" id="nv" inputmode="decimal" autocomplete="off" placeholder="Your answer (number)" value="${esc(S.num.v)}" oninput="S.num.v=this.value;setLock();np()">${S.info.s.units ? `<input class="xin" autocomplete="off" placeholder="Unit (e.g. N)" value="${esc(S.num.u)}" oninput="S.num.u=this.value">` : ''}`;
   app.innerHTML = `<div class="nosel" style="width:100%"><div class="qcard">
-<div style="display:flex;justify-content:space-between;align-items:center"><span class="tag">${v.f ? 'Follow-up' : num ? 'Numeric answer' : 'Single choice'}</span><span class="mu" style="font-size:12px">${v.t}s</span></div>
-${v.f ? `<div class="recap" style="margin:16px 0 0;font-size:14px;color:var(--mu)">Your problem was:<span style="color:var(--tx)">${esc(v.ctx)}</span></div>` : ''}
-<h2 class="qtext">${esc(v.q)}</h2>
-${num ? `<div style="margin-bottom:28px">${numIn}</div>` : `<div class="tiles">${tiles}</div>`}
+<div class="qcount" aria-label="Progress"><b>${v.f ? 'Follow-up ' : 'Question '}${v.cur + 1} / ${v.total}</b><div class="bar" role="progressbar" aria-valuemin="1" aria-valuemax="${v.total}" aria-valuenow="${v.cur + 1}"><i style="width:${Math.round((v.cur + 1) / v.total * 100)}%"></i></div></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><span class="tag">${v.f ? 'Follow-up' : num ? 'Numeric answer' : 'Single choice'}</span><span class="mu" style="font-size:12px">${v.t}s</span></div>
+${v.f ? `<div class="recap" style="margin:16px 0 0;font-size:14px;color:var(--mu)">Your problem was:<span style="color:var(--tx)">${MathFmt.rich(v.ctx)}</span></div>` : ''}
+<h2 class="qtext">${MathFmt.rich(v.q)}</h2>
+${num ? `<div>${numIn}</div><div class="numprev" id="np"></div>` : `<div class="tiles">${tiles}</div>`}
 <div class="qfoot"><span class="mu" style="font-size:12px">Irreversible: you cannot return once you continue</span>
 <button class="btn" id="lockbtn" onclick="lock()" type="button" disabled>Lock in answer</button></div></div>
 <div style="max-width:900px;margin:12px auto 0;display:flex;justify-content:space-between;gap:8px">${S.info.s.calc ? '<button class="btn ghost sm" onclick="tools()" type="button">Calculator &amp; formulas</button>' : '<span></span>'}<button class="btn ghost sm" onclick="flagQ(this)" type="button">Report unclear question</button></div></div>`;
-  setLock(); tick();
+  setLock(); np(); tick();
+}
+function np() {   // shows how a typed answer like 1/4 or 3x10^8 will be read
+  const e = $('np'), v = String(S.num.v || '').trim(); if (!e) return;
+  e.innerHTML = /[\/^]|sqrt|pi|π|√|[×x]\s*10/i.test(v) ? 'Reads as ' + MathFmt.html(v.replace(/(\d)\s*[xX]\s*(10)/g, '$1*$2')) : '';
 }
 function pick(i) {
   S.sel = i;
@@ -142,7 +150,7 @@ function tools() {
 <div class="card" style="margin-bottom:12px"><input class="xin" id="cx" placeholder="Type or tap, e.g. 9.8*sin(30)" autocomplete="off" onkeydown="if(event.key==='Enter')cc()"><div id="cr" style="font-size:20px;min-height:30px;margin:8px 0"></div>
 <div style="display:flex;flex-wrap:wrap;gap:6px">${['7', '8', '9', '/', 'sin(', 'cos(', '4', '5', '6', '*', 'tan(', '√(', '1', '2', '3', '-', 'log(', 'ln(', '0', '.', '^', '+', 'π', 'e', '(', ')', 'E'].map(k => `<button class="btn sec sm" onclick="ci('${k}')" type="button">${k}</button>`).join('')}<button class="btn sm" onclick="cc()" type="button">=</button><button class="btn sec sm" onclick="$('cx').value='';$('cr').textContent=''" type="button">C</button></div>
 <p class="mu" style="margin-top:8px;font-size:12px">Angles are in degrees. Use E for ×10ⁿ, e.g. 3E8.</p></div>
-<div class="card" style="font-size:14px"><b>Constants</b>${CONST.map(c => `<div class="mu">${c[0]} = ${c[1]}</div>`).join('')}<b style="display:block;margin-top:8px">Formulas</b>${FORM.map(f => `<div class="mu">${f}</div>`).join('')}${S.info.s.sheet ? '<b style="display:block;margin-top:8px">From your professor</b><div class="mu" style="white-space:pre-wrap">' + esc(S.info.s.sheet) + '</div>' : ''}</div></div>`;
+<div class="card" style="font-size:14px"><b>Constants</b>${CONST.map(c => `<div class="mu">${c[0]} = ${c[1]}</div>`).join('')}<b style="display:block;margin-top:8px">Formulas</b>${FORM.map(f => `<div class="mu">${f}</div>`).join('')}${S.info.s.sheet ? '<b style="display:block;margin-top:8px">From your professor</b><div class="mu" style="line-height:1.9">' + S.info.s.sheet.split('\n').map(l => /[=^_\/]/.test(l) ? '<div>' + MathFmt.html(l) + '</div>' : '<div>' + esc(l) + '</div>').join('') + '</div>' : ''}</div></div>`;
   document.body.appendChild(d);
 }
 const ci = k => { $('cx').value += k === 'e' ? '2.718281828' : k; };

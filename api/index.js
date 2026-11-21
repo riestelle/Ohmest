@@ -116,7 +116,41 @@ function evalF(src, vars) {
 /* ---------------- text, numbers, settings ---------------- */
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '');
 const nu = u => String(u || '').replace(/\s+/g, '').replace(/[\^·*]/g, '').replace(/²/g, '2').replace(/³/g, '3');
-const pf = v => parseFloat(String(v ?? '').replace(',', '.'));
+/* what a student types in a numeric box: 3.5, 3,5, 1/4, 3x10^8, 2pi, sqrt(2). Anything else falls back to the leading number (so "9.8 m/s" still reads as 9.8). */
+function pf(v) {
+  const raw = String(v ?? '').trim();
+  if (!raw || raw.length > 40) return NaN;
+  const plain = raw.replace(/[−–]/g, '-').replace(',', '.');
+  if (/^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(plain)) return parseFloat(plain);
+  try {
+    const s = fixF(raw.replace(/(\d)\s*[xX]\s*(10\s*\^)/g, '$1*$2').replace(/,/g, '.'));
+    const x = evalF(s, {});
+    if (isFinite(x)) return x;
+  } catch { if (/^[\d\s.+\-*/^()]+$/.test(plain)) return NaN; }   // pure arithmetic that fails (1/0) is not a number
+  return parseFloat(plain);
+}
+/* make a typed formula standard: × ÷ − √ π ² unicode, [ ] brackets, "x = ..." prefix, and implicit multiplication (2a, ma, 2(x+1), (a)(b)) */
+function fixF(src, names = []) {
+  const s = String(src).replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/√/g, 'sqrt').replace(/π/g, 'pi').replace(/²/g, '^2').replace(/³/g, '^3').replace(/\[/g, '(').replace(/\]/g, ')');
+  const T = s.match(/(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|[A-Za-z_]\w*|\S/g) || [], out = [];
+  const isFn = t => Object.hasOwn(FN, t), isId = t => /^[A-Za-z_]/.test(t), isNum = t => /^(?:\d|\.\d)/.test(t);
+  T.forEach(t => {
+    if (isId(t) && !names.includes(t) && !RESERVED.has(t) && t.length > 1 && [...t].every(c => names.includes(c))) {   // "ma" -> m * a
+      [...t].forEach((c, i) => { if (i) out.push('*'); out.push(c); }); return;
+    }
+    out.push(t);
+  });
+  const res = [];
+  out.forEach((t, i) => {
+    const p = out[i - 1];
+    if (p !== undefined && t !== '*') {
+      const left = isNum(p) || (isId(p) && !isFn(p)) || p === ')', right = isNum(t) || isId(t) || t === '(';
+      if (left && right && !(isFn(p) && t === '(')) res.push('*');
+    }
+    res.push(t);
+  });
+  return res.join(' ');
+}
 const fmt = x => String(+Number(x).toPrecision(6));
 const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(vars, k) ? fmt(vars[k]) : m));
 const decs = x => Math.min(6, (String(x).split('.')[1] || '').length);
@@ -125,12 +159,16 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const DEFS = {
   shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: false, calc: false, units: false, multi: true, neg: 0,
   sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '',
+  showReview: false, showKey: false, release: 'finish', defTime: 30, defPts: 1, defTol: 2,
 };
+/* what a brand-new exam starts with (older exams keep exactly what they had) */
+const NEW_EXAM = { ...DEFS, shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, release: 'closed', multi: true };
+const released = (ex, o) => o.release !== 'closed' || !isOpen(ex);
 const SHEET_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[^/]+\/|macros\/)s\/[A-Za-z0-9_-]+\/exec$/;
 const opt = ex => ({ ...DEFS, ...(ex.set || {}) });
 const isOpen = ex => { const o = opt(ex), n = Date.now(); return ex.status === 'open' && (!o.opens || n >= o.opens) && (!o.closes || n <= o.closes); };
 const mkSet = s => {
-  s = s || {};
+  s = { ...DEFS, ...(s || {}) };
   const url = String(s.sheetUrl || '').trim();
   if (url && !SHEET_RE.test(url)) throw err('The Google Sheets link must be the web app URL that ends in /exec');
   return {
@@ -140,6 +178,8 @@ const mkSet = s => {
     roster: (Array.isArray(s.roster) ? s.roster : []).map(norm).filter(Boolean).slice(0, 2000),
     followUps: clamp(Math.floor(+s.followUps || 0), 0, 3), spot: clamp(Math.floor(+s.spot || 0), 0, 3), spotMins: clamp(Math.floor(+s.spotMins || 15), 1, 1440),
     sheetUrl: url, sheetKey: String(s.sheetKey || '').slice(0, 100),
+    showReview: !!s.showReview, showKey: !!s.showKey, release: s.release === 'closed' ? 'closed' : 'finish',
+    defTime: clamp(Math.floor(+s.defTime || 30), 5, 3600), defPts: clamp(+s.defPts >= 0 ? +s.defPts : 1, 0, 100), defTol: clamp(+s.defTol >= 0 ? +s.defTol : 2, 0, 100),
   };
 };
 
@@ -192,7 +232,8 @@ function cleanQ(q, i) {
   const key = {};
   if (!item.q.trim()) throw E('type the question.');
   if (num) {
-    const f = String(q.f || '').trim();
+    let f = String(q.f || '').trim();
+    if (/^[A-Za-z_]\w*\s*(?:\([^)]*\))?\s*=[^=]/.test(f)) f = f.slice(f.indexOf('=') + 1);          // "x = y/z" -> "y/z"
     const vars = (Array.isArray(q.vars) ? q.vars : []).slice(0, 6).map(v => ({ n: String(v.n || '').trim(), min: +v.min, max: +v.max, step: +v.step }));
     if (f) {
       const seen = new Set();
@@ -201,7 +242,7 @@ function cleanQ(q, i) {
         seen.add(v.n);
         if (![v.min, v.max, v.step].every(isFinite) || v.step <= 0 || v.max < v.min || (v.max - v.min) / v.step > 1e5) throw E('check the range of ' + v.n + ' (min, max, and a step above 0).');
       }
-      item.vars = vars;
+      item.vars = vars; f = fixF(f, vars.map(v => v.n));
       for (let k = 0; k < 100; k++) {
         try { evalF(f, genVars(item, 'chk' + k, i)); }
         catch { throw E('the formula cannot be calculated for every possible set of numbers (check for division by zero). Use + - * / ^ ( ), your variable names, and functions like sqrt, sin, cos, ln.'); }
@@ -291,11 +332,13 @@ function view(a, ex, K) {
 }
 async function V(a, ex) {
   const o = opt(ex), it = a.status === 'in_progress' ? items(a)[a.cur] : null;
-  const K = (it && it.f) || (a.status !== 'in_progress' && o.showScore) ? (await getK(ex)) : [];
+  const rel = released(ex, o), K = (it && it.f) || (a.status !== 'in_progress' && o.showScore && rel) ? (await getK(ex)) : [];
   const v = view(a, ex, K);
   if (v.status !== 'in_progress') {
     v.receipt = rc(a); v.finished = a.finished || 0;
-    if (o.showScore) { v.score = score(a, K, ex); v.of = maxPts(ex); }
+    if (o.showScore && rel) { v.score = score(a, K, ex); v.of = maxPts(ex); }
+    v.canReview = !!(o.showReview && rel);
+    v.later = !rel && !!(o.showScore || o.showReview);
   } else v.ann = await r.get('ann:' + ex.id);
   return v;
 }
@@ -475,6 +518,7 @@ async function route(b, ip) {
   switch (b.action) {
     /* ---------- accounts ---------- */
     case 'register': {
+      if (!SECRET) throw err('AUTH_SECRET is not set on the server. Add it in your Vercel project settings (see README).', 500);
       await throttle('reg', ip, 10, 3600);
       const name = str(b.name, 80), email = str(b.email, 120).toLowerCase();
       if (!name) throw err('Enter your name');
@@ -530,7 +574,7 @@ async function route(b, ip) {
       const u = await needUser(b);
       if (((await r.scard('ue:' + u.email)) || 0) >= 100) throw err('You have reached the limit of 100 exams. Delete one first.');
       const id = crypto.randomBytes(5).toString('hex');
-      await r.set('e:' + id, { id, school: u.school, owner: u.email, title: str(b.title, 120) || 'Untitled exam', maxLeaves: 3, status: 'closed', set: mkSet({}), questions: [], created: Date.now() });
+      await r.set('e:' + id, { id, school: u.school, owner: u.email, title: str(b.title, 120) || 'Untitled exam', maxLeaves: 3, status: 'closed', set: mkSet(NEW_EXAM), questions: [], created: Date.now() });
       await r.set('k:' + id, []);
       await r.sadd('ue:' + u.email, id); await r.sadd('se:' + u.school, id);
       return { id };
@@ -567,7 +611,7 @@ async function route(b, ip) {
       const { item, key } = cleanQ(b.q || {}, +b.i || 0);
       const vars = genVars(item, crypto.randomBytes(4).toString('hex'), 0), ans = ansVal(item, key, vars);
       return {
-        text: fill(item.q, vars), vars, exp: item.type === 'num' ? expectNum(key, vars).map(fmt).join(' / ') + (key.u ? ' ' + key.u : '') : L(key.a),
+        text: fill(item.q, vars), vars, formula: key.f || '', exp: item.type === 'num' ? expectNum(key, vars).map(fmt).join(' / ') + (key.u ? ' ' + key.u : '') : L(key.a),
         fu: item.fu ? { q: fill(item.fu.q, { ...vars, ans }), c: item.fu.c, a: key.fa } : null,
       };
     }
@@ -733,6 +777,41 @@ async function route(b, ip) {
       }
       await put(a, ex);
       return { view: await V(a, ex) };
+    }
+    case 'myresult': {
+      const { a, ex } = await loadAtt(b);
+      const before = JSON.stringify(a);
+      await adv(a, ex);
+      if (JSON.stringify(a) !== before) await put(a, ex);
+      const o = opt(ex);
+      if (a.status === 'in_progress') throw err('Finish the exam first.', 403);
+      if (!o.showScore && !o.showReview) throw err('Your professor has not released results for this exam.', 403);
+      if (!released(ex, o)) throw err('Results will be available after your professor closes the exam.', 403);
+      const K = await getK(ex), tot = maxPts(ex), sc = score(a, K, ex);
+      const rows = !o.showReview ? [] : a.order.map((qi, n) => {
+        const q = ex.questions[qi], k = K[qi] || {}, g = a.ans && a.ans[qi], vars = genVars(q, a.seed, qi), num = q.type === 'num';
+        const got = !att(q, g) ? '' : num ? String(g.v).trim() + (g.u ? ' ' + g.u : '') : q.c[g.s];
+        return {
+          n: n + 1, type: q.type || 'mc', q: fill(q.q, vars), got, state: !att(q, g) ? 'none' : corr(q, k, g, o, vars) ? 'right' : 'wrong',
+          pts: Math.round(earn(q, k, g, o, vars) * 100) / 100, of: q.pts ?? 1,
+          exp: !o.showKey ? undefined : num ? expectNum(k, vars).map(fmt).join(' / ') + (k.u ? ' ' + k.u : '') : (q.c[k.a] ?? ''),
+        };
+      });
+      return { title: ex.title, status: a.status, score: sc, of: tot, pct: tot ? Math.round(sc / tot * 100) : 0, receipt: rc(a), finished: a.finished || 0, showKey: !!o.showKey, review: !!o.showReview, rows };
+    }
+    case 'claim': {   // a student whose browser forgot the session gets it back with student ID + receipt code
+      await throttle('claim', ip, 12, 900);
+      const sc = await r.get('s:' + str(b.code, 10).toUpperCase());
+      if (!sc) throw err('School not found. Sign in again.', 404);
+      const sid = str(b.sid, 40), rcpt = str(b.receipt, 30).toUpperCase().replace(/\s+/g, '');
+      if (!sid || !rcpt) throw err('Enter your student ID and receipt code.');
+      const tokens = {};
+      for (const id of ((await r.smembers('se:' + sc.code)) || [])) {
+        const a = await r.get(aKey(id, sid));
+        if (a && a.status !== 'in_progress' && rc(a) === rcpt) tokens[id] = a.token;
+      }
+      if (!Object.keys(tokens).length) throw err('No finished exam matches that student ID and receipt code. Check for typos.', 404);
+      return { tokens };
     }
     case 'upload': {
       const { a, ex } = await loadAtt(b);

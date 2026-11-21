@@ -33,7 +33,7 @@ function chrome({ nav = [], active = '', who = null, home = 'index.html', logout
   const me = who ? `<div class="me" id="me"><button type="button" aria-label="Account menu" aria-haspopup="true"><span class="av">${esc(initials(who.name))}</span><span class="ms">expand_more</span></button>
 <div class="menu"><div class="who"><b>${esc(who.name)}</b><span>${esc(who.sub || '')}</span></div><button type="button" id="out"><span class="ms">logout</span>Sign out</button></div></div>` : '';
   $('hdr').outerHTML = `<header class="hdr" id="hdr"><div class="in"><div class="l"><a class="logo" href="${home}"><i>O</i>Ohmest</a><nav class="nav">${links}</nav></div>${me}</div></header>`;
-  $('ftr').outerHTML = '<footer class="ftr" id="ftr"><div><span>© ' + new Date().getFullYear() + ' Ohmest</span><span>Timed, proctored exams for any school</span></div></footer>';
+  $('ftr').outerHTML = '<footer class="ftr" id="ftr"><div><span>© ' + new Date().getFullYear() + ' Ohmest</span>' + (who ? '' : '<span class="fl"><a href="student-login.html">Student sign in</a><a href="prof-login.html">Professor sign in</a></span>') + '</div></footer>';
   const m = $('me');
   if (m) {
     m.firstElementChild.onclick = e => { e.stopPropagation(); m.classList.toggle('open'); };
