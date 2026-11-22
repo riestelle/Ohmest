@@ -9,6 +9,8 @@ const r = new Redis({
 const SECRET = process.env.AUTH_SECRET || '';
 const GRACE = 1500;          // ms of network slack on every timer
 const WORK_MAX = 600000;     // max characters of a work photo (base64 JPEG)
+const IMG_MAX = 700000, IMG_ID = /^[a-f0-9]{16}$/;   // a question picture: a JPEG/PNG data URL (the editor shrinks it first), kept apart from the exam so the exam stays small
+const imgKey = (eid, id) => 'qi:' + eid + ':' + id;
 const LIM = { q: 3000, choice: 500, choices: 10, tMax: 3600, ptsMax: 100, bytes: 700000 };   // keeps one exam well under Upstash's request size
 const err = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const L = i => String.fromCharCode(65 + i);
@@ -82,10 +84,11 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const DEFS = {
   shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: false, calc: false, units: false, multi: true, neg: 0,
   sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '',
-  showReview: false, showKey: false, release: 'finish', pin: '', defTime: 30, defPts: 1, defTol: 2,
+  showReview: false, showKey: false, release: 'finish', pin: '', defTime: 30,
+  rule: 'count', awayFree: 5, awayBank: 30, awayPen: 100, awayLock: 0,   // rule 'count' = lock after N leaves (old exams); 'away' = time-away rule defPts: 1, defTol: 2,
 };
 /* what a brand-new exam starts with (older exams keep exactly what they had) */
-const NEW_EXAM = { ...DEFS, shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, release: 'closed', multi: true };
+const NEW_EXAM = { ...DEFS, rule: 'away', shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, release: 'closed', multi: true };
 const released = (ex, o) => o.release !== 'closed' || !isOpen(ex);
 const SHEET_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[^/]+\/|macros\/)s\/[A-Za-z0-9_-]+\/exec$/;
 const opt = ex => ({ ...DEFS, ...(ex.set || {}) });
@@ -102,6 +105,9 @@ const mkSet = s => {
     followUps: clamp(Math.floor(+s.followUps || 0), 0, 3), spot: clamp(Math.floor(+s.spot || 0), 0, 3), spotMins: clamp(Math.floor(+s.spotMins || 15), 1, 1440),
     sheetUrl: url, sheetKey: String(s.sheetKey || '').slice(0, 100),
     showReview: !!s.showReview, showKey: !!s.showKey, release: s.release === 'closed' ? 'closed' : 'finish', pin: str(s.pin, 20),
+    rule: s.rule === 'away' ? 'away' : 'count',
+    awayFree: clamp(Math.floor(+s.awayFree >= 0 ? +s.awayFree : 5), 0, 60), awayBank: clamp(Math.floor(+s.awayBank >= 0 ? +s.awayBank : 30), 0, 600),
+    awayPen: clamp(Math.floor(+s.awayPen >= 0 ? +s.awayPen : 100), 0, 100), awayLock: clamp(Math.floor(+s.awayLock || 0), 0, 240),
     defTime: clamp(Math.floor(+s.defTime || 30), 5, 3600), defPts: clamp(+s.defPts >= 0 ? +s.defPts : 1, 0, 100), defTol: clamp(+s.defTol >= 0 ? +s.defTol : 2, 0, 100),
   };
 };
@@ -136,10 +142,11 @@ const corr = (q, k, a, o, vars) => {
   return a.s >= 0 && a.s === k.a;
 };
 const att = (q, a) => !!a && (q.type === 'num' ? isFinite(pf(a.v)) : a.s >= 0);
-const earn = (q, k, a, o, vars) => { const p = q.pts ?? 1; return corr(q, k, a, o, vars) ? p : att(q, a) ? -p * (o.neg || 0) / 100 : 0; };
+/* pen = this question was forfeited for being away too long: its points are cut by pen.pct percent (100 = scores 0, and a wrong answer costs nothing either) */
+const earn = (q, k, a, o, vars, pen) => { const p = q.pts ?? 1, base = corr(q, k, a, o, vars) ? p : att(q, a) ? -p * (o.neg || 0) / 100 : 0; return pen ? base * (1 - pen.pct / 100) : base; };
 const score = (a, K, ex) => {
   const o = opt(ex); let s = 0;
-  ex.questions.forEach((q, i) => { s += earn(q, K[i] || {}, a.ans && a.ans[i], o, genVars(q, a.seed, i)); });
+  ex.questions.forEach((q, i) => { s += earn(q, K[i] || {}, a.ans && a.ans[i], o, genVars(q, a.seed, i), a.pen && a.pen[i]); });
   return Math.max(0, Math.round(s * 100) / 100);
 };
 const maxPts = ex => ex.questions.reduce((s, q) => s + (q.pts ?? 1), 0);
@@ -152,6 +159,7 @@ function cleanQ(q, i) {
     q: String(q.q || '').slice(0, LIM.q), type: num ? 'num' : 'mc', c: num ? [] : (Array.isArray(q.c) ? q.c : []).slice(0, LIM.choices).map(x => String(x).slice(0, LIM.choice)),
     t: clamp(+q.t || 30, 5, LIM.tMax), pts: clamp(+q.pts >= 0 ? +q.pts : 1, 0, LIM.ptsMax),
   };
+  if (IMG_ID.test(String(q.img || ''))) { item.img = String(q.img); item.imgAlt = String(q.imgAlt || '').slice(0, 200); }
   const key = {};
   if (!item.q.trim()) throw E('type the question.');
   if (num) {
@@ -192,8 +200,29 @@ function cleanQ(q, i) {
 /* ---------------- an attempt is a list of items: main questions, then follow-ups ---------------- */
 const items = a => a.order.map(qi => ({ qi, f: 0 })).concat((a.fu || []).map(qi => ({ qi, f: 1 })));
 const lockIf = (a, ex) => {
-  if (a.status === 'in_progress' && ex.maxLeaves > 0 && a.leaves >= ex.maxLeaves) { a.status = 'locked'; a.finished = Date.now(); }
+  if (a.status === 'in_progress' && opt(ex).rule !== 'away' && ex.maxLeaves > 0 && a.leaves >= ex.maxLeaves) { a.status = 'locked'; a.finished = Date.now(); }
 };
+/* the student is back (or answered, or reloaded): close the time-away interval and, under the 'away' rule, charge it.
+   Short breaks are free; long ones draw down a free-time bank; once the bank is empty the question they left on is forfeited.
+   cd = how long the browser itself says it was hidden: a phone may not send "left" until it comes back, so the server takes the larger of the two. */
+function closeAway(a, ex, now, cd) {
+  if (!a.awayAt) return;
+  const o = opt(ex), qi = a.awayQi ?? -1;
+  const d = Math.max(0, now - a.awayAt, clamp(+cd || 0, 0, 3600000));
+  a.away += d; a.awayAt = 0; a.awayQi = -1;
+  a.ev.push({ t: now, k: 'back', d });
+  if (o.rule !== 'away') return;
+  if (d >= o.awayFree * 1000) {
+    a.bank = (a.bank || 0) + d;
+    if (a.bank > o.awayBank * 1000 && qi >= 0 && o.awayPen > 0) {
+      a.pen = a.pen || {};
+      const was = a.pen[qi];
+      a.pen[qi] = { pct: Math.max(o.awayPen, was ? was.pct : 0), d: (was ? was.d : 0) + d };
+      a.ev.push({ t: now, k: 'forfeit', qi, d });
+    }
+  }
+  if (o.awayLock > 0 && a.status === 'in_progress' && a.away - (a.awayBase || 0) >= o.awayLock * 60000) { a.status = 'locked'; a.finished = now; }
+}
 
 /* called whenever a.cur moved: choose follow-ups once the main part ends, then finish */
 async function settle(a, ex) {
@@ -244,14 +273,17 @@ function view(a, ex, K) {
   const it = items(a)[a.cur], q = ex.questions[it.qi], vars = genVars(q, a.seed, it.qi), t = it.f ? q.fu.t : q.t;
   const base = {
     status: 'in_progress', title: ex.title, qi: it.qi, f: it.f, t, left: t * 1000 - (Date.now() - a.qStart),
-    cur: it.f ? a.cur - a.order.length : a.cur, total: it.f ? a.fu.length : a.order.length, leaves: a.leaves || 0, max: ex.maxLeaves || 0,
+    cur: it.f ? a.cur - a.order.length : a.cur, total: it.f ? a.fu.length : a.order.length, leaves: a.leaves || 0, max: o.rule === 'away' ? 0 : ex.maxLeaves || 0,
+    aw: o.rule === 'away' ? { free: o.awayFree, bank: Math.max(0, Math.ceil(o.awayBank - (a.bank || 0) / 1000)), pct: o.awayPen, lock: o.awayLock } : null,
+    forfeit: !!(a.pen && !it.f && a.pen[it.qi]),
+    reported: !!(a.rep && a.rep[it.qi]),
   };
   if (it.f) {
     const cp = o.shuffleC ? perm(q.fu.c.length, a.seed + '|f|' + it.qi) : [...q.fu.c.keys()];
     return { ...base, type: 'mc', q: fill(q.fu.q, { ...vars, ans: ansVal(q, K[it.qi] || {}, vars) }), ctx: fill(q.q, vars), choices: cp.map(j => ({ i: j, t: q.fu.c[j] })) };
   }
   const cp = o.shuffleC ? perm(q.c.length, a.seed + '|c|' + it.qi) : [...q.c.keys()];
-  return { ...base, type: q.type || 'mc', q: fill(q.q, vars), choices: cp.map(j => ({ i: j, t: q.c[j] })) };
+  return { ...base, type: q.type || 'mc', q: fill(q.q, vars), img: q.img ? '/api?img=' + ex.id + '.' + q.img : null, imgAlt: q.imgAlt || '', choices: cp.map(j => ({ i: j, t: q.c[j] })) };
 }
 async function V(a, ex) {
   const o = opt(ex), it = a.status === 'in_progress' ? items(a)[a.cur] : null;
@@ -279,6 +311,7 @@ function analyze(ex, K, atts) {
       return {
         ok: !g ? -1 : corr(q, k, g, o, vars) ? 1 : 0, to: !!g && !att(q, g), ms: g ? g.ms : 0, vars, ev,
         got: given(q, g), exp: q.type === 'num' ? (ev.length ? ev.map(fmt).join(' / ') + (k.u ? ' ' + k.u : '') : '?') : L(k.a || 0),
+        pen: a.pen && a.pen[i] ? a.pen[i] : null,
         gv: q.type === 'num' && att(q, g) ? pf(g.v) : null, gs: q.type !== 'num' && g && g.s >= 0 ? g.s : -1,
       };
     }),
@@ -289,6 +322,7 @@ function analyze(ex, K, atts) {
       n: i + 1, q: q.q, type: q.type, t: q.t, key: kTxt(q, K[i] || {}), rand: !!(q.vars && q.vars.length),
       pct: g.length ? g.filter(x => x.rows[i].ok === 1).length / g.length : null,
       avg: g.length ? g.reduce((s, x) => s + x.rows[i].ms, 0) / g.length : null, med: median(real), cnt: real.length,
+      rep: A.filter(x => x.a.rep && x.a.rep[i]).length, repBy: A.filter(x => x.a.rep && x.a.rep[i]).map(x => x.a.name).slice(0, 30),
     };
   });
   const fl = new Map(A.map(x => [x.a.sid, []]));
@@ -340,7 +374,8 @@ function analyze(ex, K, atts) {
   /* proctoring, follow-ups, work photos */
   A.forEach(x => {
     const a = x.a, ev = a.ev || [], aw = Math.round((a.away || 0) / 1000);
-    if (a.status === 'locked') F(x, 'locked', 3, 'The exam auto-locked after too many departures.');
+    if (a.status === 'locked') F(x, 'locked', 3, o.rule === 'away' ? 'The exam auto-locked after too much time away.' : 'The exam auto-locked after too many departures.');
+    Object.entries(a.pen || {}).forEach(([qi, v]) => F(x, 'forfeit', 1, 'Q' + (+qi + 1) + (v.pct >= 100 ? ' did not count' : ' lost ' + v.pct + '% of its points') + ': away ' + Math.round(v.d / 1000) + ' s past the free time. You can restore it.'));
     if ((a.leaves || 0) >= 5) F(x, 'tabs', 2, 'Left the exam ' + a.leaves + ' times.'); else if ((a.leaves || 0) >= 3) F(x, 'tabs', 1, 'Left the exam ' + a.leaves + ' times.');
     if (aw >= 240) F(x, 'away', 2, 'Away from the exam for ' + aw + ' seconds in total.'); else if (aw >= 90) F(x, 'away', 1, 'Away from the exam for ' + aw + ' seconds in total.');
     const pc = ev.filter(e => e.k === 'paste' || e.k === 'keys').length;
@@ -367,6 +402,8 @@ function analyze(ex, K, atts) {
       score: sc, of: tot, pct: tot ? Math.round(sc / tot * 100) / 100 : 0,
       leaves: a.leaves || 0, away: Math.round((a.away || 0) / 1000), receipt: rc(a), started: a.started, finished: a.finished || 0, seed: a.seed,
       review: a.review || '', ev: a.ev || [], rows: x.rows, flags, pts, risk: pts >= 6 ? 'High' : pts >= 3 ? 'Medium' : 'Low',
+      rep: Object.keys(a.rep || {}).map(k => +k + 1),
+      pen: Object.entries(a.pen || {}).map(([q, v]) => ({ n: +q + 1, pct: v.pct, d: Math.round(v.d / 1000) })), bank: Math.round((a.bank || 0) / 1000),
       fu: (a.fu || []).map(qi => ({ n: qi + 1, ok: !!(a.fans && a.fans[qi] && a.fans[qi].s === (K[qi] || {}).fa) })),
       workReq: (a.workReq || []).map(q => q + 1), work: Object.keys(a.work || {}).map(q => +q + 1), workBy: a.workBy || 0, synced: !!a.synced,
     };
@@ -429,7 +466,8 @@ async function allAtts(ex) {
 }
 async function dropExam(ex) {
   for (const id of ((await r.smembers('as:' + ex.id)) || [])) await clearAtt(ex, id);
-  await r.del('e:' + ex.id, 'k:' + ex.id, 'ann:' + ex.id, 'as:' + ex.id, 'ad:' + ex.id, 'adm:' + ex.id);
+  const pics = [...new Set((ex.questions || []).map(q => q.img).filter(Boolean))].map(id => imgKey(ex.id, id));
+  await r.del('e:' + ex.id, 'k:' + ex.id, 'ann:' + ex.id, 'as:' + ex.id, 'ad:' + ex.id, 'adm:' + ex.id, ...pics);
   await r.srem('ue:' + ex.owner, ex.id); await r.srem('se:' + ex.school, ex.id);
 }
 const examCard = (ex, total, done) => {
@@ -440,8 +478,8 @@ const examInfo = (ex, school, owner) => {
   const o = opt(ex);
   return {
     id: ex.id, open: isOpen(ex), status: ex.status, now: Date.now(), opens: o.opens, closes: o.closes, title: ex.title, school, by: owner,
-    n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), maxLeaves: ex.maxLeaves, fu: o.followUps, spot: o.spot, spotMins: o.spotMins,
-    s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet, pin: !!o.pin },
+    n: ex.questions.length, sec: ex.questions.reduce((s, q) => s + q.t, 0), maxLeaves: o.rule === 'away' ? 0 : ex.maxLeaves, fu: o.followUps, spot: o.spot, spotMins: o.spotMins,
+    s: { copyBlock: o.copyBlock, fsTrack: o.fsTrack, calc: o.calc, units: o.units, sheet: o.sheet, pin: !!o.pin, rule: o.rule, awayFree: o.awayFree, awayBank: o.awayBank, awayPen: o.awayPen, awayLock: o.awayLock },
   };
 };
 
@@ -459,7 +497,7 @@ async function withLock(key, fn) {
   }
   throw err('The server is busy. Please try again in a moment.', 503);
 }
-const LOCKED = new Set(['start', 'answer', 'event', 'upload', 'unlock', 'review', 'reset']);
+const LOCKED = new Set(['start', 'answer', 'event', 'upload', 'unlock', 'review', 'reset', 'restore']);
 /* read-mostly actions (the 30 s state check, results) only take the lock when the clock actually moved the attempt on, which saves database calls */
 async function fresh(b) {
   const first = await loadAtt(b), before = JSON.stringify(first.a);
@@ -552,7 +590,7 @@ async function run(b, ip) {
     }
     case 'load': {
       const ex = await ownEx(b, await needUser(b));
-      return { exam: ex, key: await getK(ex) };
+      return { exam: { ...ex, set: opt(ex) }, key: await getK(ex) };
     }
     case 'save': {
       const ex = await ownEx(b, await needUser(b));
@@ -561,6 +599,9 @@ async function run(b, ip) {
       if (!raw.length) throw err('Add at least one question.');
       const qs = [], key = [];
       raw.forEach((q, i) => { const c = cleanQ(q, i); qs.push(c.item); key.push(c.key); });
+      const used = [...new Set(qs.map(q => q.img).filter(Boolean))];
+      if (used.length > 40) throw err('An exam can have at most 40 different pictures.');
+      for (const id of used) if (!(await r.exists(imgKey(ex.id, id)))) qs.forEach(q => { if (q.img === id) { delete q.img; delete q.imgAlt; } });   // a picture that expired or never uploaded is dropped
       if (JSON.stringify(qs).length + JSON.stringify(key).length > LIM.bytes) throw err('This exam is too large to save. Shorten some questions or split it into two exams.');
       if (ex.questions.length && ((await r.scard('as:' + ex.id)) || 0) > 0) {
         const oldKey = await getK(ex);
@@ -570,7 +611,25 @@ async function run(b, ip) {
       }
       await r.set('e:' + ex.id, { ...ex, title: str(b.title, 120) || 'Untitled exam', maxLeaves: Math.max(0, Math.floor(+b.maxLeaves || 0)), set: mkSet(b.settings), questions: qs });
       await r.set('k:' + ex.id, key);
+      const keep = new Set(qs.map(q => q.img).filter(Boolean));
+      for (const id of keep) await r.persist(imgKey(ex.id, id)).catch(() => {});                  // uploaded pictures expire after 30 days until a save adopts them
+      for (const id of new Set((ex.questions || []).map(q => q.img).filter(x => x && !keep.has(x)))) await r.del(imgKey(ex.id, id));
       return { ok: 1 };
+    }
+    case 'qimg': {   // the professor adds a picture to a question
+      const u = await needUser(b), ex = await ownEx(b, u);
+      if (ex.status === 'open') throw err('Close the exam before editing it.');
+      await throttle('qimg', u.email, 80, 600);
+      const img = String(b.img || '');
+      if (img.length > IMG_MAX) throw err('That picture is too large. Try a smaller one.');
+      const m = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(img);
+      if (!m) throw err('Use a JPEG or PNG picture.');
+      const head = Buffer.from(m[2].slice(0, 16), 'base64');
+      const okMagic = m[1] === 'jpeg' ? head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff : head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+      if (!okMagic) throw err('That file is not a real ' + m[1].toUpperCase() + ' picture.');
+      const id = crypto.randomBytes(8).toString('hex');
+      await r.set(imgKey(ex.id, id), img, { ex: 30 * 86400 });
+      return { id };
     }
     case 'visibility': {   // what students may see afterwards: safe to change while the exam is open
       const ex = await ownEx(b, await needUser(b)), x = b.settings || {};
@@ -625,9 +684,19 @@ async function run(b, ip) {
       const a = await r.get(aKey(ex.id, b.sid));
       if (!a) throw err('Student not found');
       if (a.status !== 'locked') throw err('That attempt is not locked.');
-      a.status = 'in_progress'; delete a.finished; a.leaves = 0; a.awayAt = 0; a.qStart = Date.now(); a.synced = false;
+      a.status = 'in_progress'; delete a.finished; a.leaves = 0; a.awayAt = 0; a.awayQi = -1; a.awayBase = a.away || 0; a.qStart = Date.now(); a.synced = false;
       a.ev.push({ t: Date.now(), k: 'unlocked' });
       await r.set(aKey(ex.id, a.sid), a); await r.srem('ad:' + ex.id, norm(a.sid));
+      return { ok: 1 };
+    }
+    case 'restore': {   // the professor accepts the student's reason: the forfeited question counts again
+      const ex = await ownEx(b, await needUser(b));
+      const a = await r.get(aKey(ex.id, b.sid));
+      if (!a) throw err('Student not found');
+      const qi = Math.floor(+b.qi);
+      if (!a.pen || !a.pen[qi]) throw err('That question was not forfeited.');
+      delete a.pen[qi]; a.ev.push({ t: Date.now(), k: 'restored', qi });
+      await r.set(aKey(ex.id, a.sid), a);
       return { ok: 1 };
     }
     case 'clear': {
@@ -706,7 +775,11 @@ async function run(b, ip) {
         if (a.status === 'in_progress') {
           await adv(a, ex);
           if (a.status === 'in_progress') {
-            a.leaves++; a.ev.push({ t: Date.now(), k: 'resumed', qi: items(a)[a.cur].qi }); lockIf(a, ex);
+            closeAway(a, ex, Date.now());
+            if (a.status === 'in_progress') {
+              a.ev.push({ t: Date.now(), k: 'resumed', qi: items(a)[a.cur].qi });
+              if (opt(ex).rule !== 'away') { a.leaves++; lockIf(a, ex); }   // under the time-away rule a reload is logged but never counts against the student
+            }
           }
         }
       } else {
@@ -733,6 +806,7 @@ async function run(b, ip) {
     case 'answer': {
       const { a, ex } = await loadAtt(b);
       await adv(a, ex);
+      if (a.status === 'in_progress') closeAway(a, ex, Date.now());   // answering means they are back, even if "back" never arrived
       if (a.status === 'in_progress') {
         const it = items(a)[a.cur];
         if (it.qi === b.qi && !!it.f === !!b.f) {
@@ -753,12 +827,16 @@ async function run(b, ip) {
       if (a.status === 'in_progress') {
         const now = Date.now(), qi = items(a)[a.cur].qi;
         if (['tab_hidden', 'window_blur', 'fullscreen_exit'].includes(b.k)) {
-          if (!a.awayAt) { a.awayAt = now; a.leaves++; a.ev.push({ t: now, k: b.k, qi }); lockIf(a, ex); }
+          if (!a.awayAt) { const it = items(a)[a.cur]; a.awayAt = now; a.awayQi = it && !it.f ? it.qi : -1; a.leaves++; a.ev.push({ t: now, k: b.k, qi }); lockIf(a, ex); }
         } else if (b.k === 'back') {
-          if (a.awayAt) { const d = now - a.awayAt; a.away += d; a.awayAt = 0; a.ev.push({ t: now, k: 'back', d }); }
+          closeAway(a, ex, now, b.d);
         } else if (b.k === 'nofs') {
           if (!a.nofs) { a.nofs = 1; a.ev.push({ t: now, k: 'nofs' }); }
-        } else if (b.k === 'paste' || b.k === 'keys' || b.k === 'flag') {
+        } else if (b.k === 'flag') {   // "Report unclear question": kept per question (not only in the capped activity log), once per student, main questions only
+          const it = items(a)[a.cur];
+          a.rep = a.rep || {};
+          if (!it.f && !a.rep[it.qi]) { a.rep[it.qi] = now; a.ev.push({ t: now, k: 'flag', qi }); }
+        } else if (b.k === 'paste' || b.k === 'keys') {
           if (a.ev.length < 300) a.ev.push({ t: now, k: b.k, qi });
         }
       }
@@ -776,8 +854,8 @@ async function run(b, ip) {
         const q = ex.questions[qi], k = K[qi] || {}, g = a.ans && a.ans[qi], vars = genVars(q, a.seed, qi), num = q.type === 'num';
         const got = !att(q, g) ? '' : num ? String(g.v).trim() + (g.u ? ' ' + g.u : '') : q.c[g.s];
         return {
-          n: n + 1, type: q.type || 'mc', q: fill(q.q, vars), got, state: !att(q, g) ? 'none' : corr(q, k, g, o, vars) ? 'right' : 'wrong',
-          pts: Math.round(earn(q, k, g, o, vars) * 100) / 100, of: q.pts ?? 1,
+          n: n + 1, type: q.type || 'mc', q: fill(q.q, vars), img: q.img ? '/api?img=' + ex.id + '.' + q.img : null, imgAlt: q.imgAlt || '', got, state: a.pen && a.pen[qi] ? 'forfeit' : !att(q, g) ? 'none' : corr(q, k, g, o, vars) ? 'right' : 'wrong',
+          pts: Math.round(earn(q, k, g, o, vars, a.pen && a.pen[qi]) * 100) / 100, of: q.pts ?? 1,
           exp: !o.showKey ? undefined : num ? expectNum(k, vars).map(fmt).join(' / ') + (k.u ? ' ' + k.u : '') : (q.c[k.a] ?? ''),
         };
       });
@@ -817,7 +895,21 @@ async function run(b, ip) {
 }
 
 const DB_OK = !!((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN));
+/* GET /api?img=<examId>.<pictureId>: the picture bytes. The id is random and only given to a student when that question is on screen.
+   The id never changes what it shows, so the browser and Vercel's CDN may keep it for good (which also saves database reads). */
+async function sendImg(req, res) {
+  const q = (req.query && req.query.img) || new URL(req.url || '/', 'http://x').searchParams.get('img') || '';
+  const [eid, id] = String(q).split('.');
+  if (!eidOk(eid) || !IMG_ID.test(id || '')) return res.status(404).end();
+  const d = await r.get(imgKey(eid, id)), m = typeof d === 'string' && /^data:image\/(jpeg|png);base64,(.+)$/.exec(d);
+  if (!m) return res.status(404).end();
+  res.setHeader('Content-Type', d.startsWith('data:image/png') ? 'image/png' : 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=31536000, immutable');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.status(200).end(Buffer.from(m[2], 'base64'));
+}
 export default async function handler(req, res) {
+  if (req.method === 'GET' && DB_OK) { try { return await sendImg(req, res); } catch (e) { return res.status(500).end(); } }
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
   if (!DB_OK) return res.status(500).json({ error: 'Database not connected. Add an Upstash Redis database and set UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN (see README).' });

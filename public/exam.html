@@ -9,7 +9,7 @@
 /* LIVE EXAM PAGE. The server owns the clock, the order and the answer key; this page only draws and reports. */
 const COARSE = matchMedia('(pointer:coarse)').matches;
 let S = { code: '', sid: '', name: '', token: '', v: null, sel: null, t0: 0, fs: false, nofs: false, timer: null, poll: null, info: null, num: { v: '', u: '' }, ann: null };
-let busy = false, away = false, lt = null, retryAt = 0;
+let busy = false, away = false, awayT = 0, lt = null, retryAt = 0;
 const EID = new URLSearchParams(location.search).get('id') || '', W = student();
 const CARD = 'qcard';
 const fsFn = () => { const e = document.documentElement; return e.requestFullscreen || e.webkitRequestFullscreen; };
@@ -41,9 +41,16 @@ function intro(msg = '') {
     'Each question has its own timer. When it ends, your answer locks automatically.',
     'You cannot go back to earlier questions.',
     'Stay on this screen. Switching tabs or apps' + (i.s.fsTrack ? ', or leaving fullscreen (where your device supports it),' : '') + ' is recorded and shown to your professor.',
-    i.maxLeaves > 0 ? 'Leaving ' + i.maxLeaves + ' time' + (i.maxLeaves === 1 ? '' : 's') + ' locks the exam.' : '',
+    ...(i.s.rule === 'away' ? [
+      i.s.awayFree > 0 ? 'Short breaks under ' + i.s.awayFree + ' seconds are ignored.' : '',
+      'You have ' + i.s.awayBank + ' seconds of free time away from the exam in total. After that, leaving makes that question ' + (i.s.awayPen >= 100 ? 'not count' : 'lose ' + i.s.awayPen + '% of its points') + '. Your professor can restore it if you had a good reason.',
+      i.s.awayLock > 0 ? 'Being away more than ' + i.s.awayLock + ' minute' + (i.s.awayLock === 1 ? '' : 's') + ' in total locks the exam.' : '',
+      'Reloading the page does not count against you.',
+    ] : [
+      i.maxLeaves > 0 ? 'Leaving ' + i.maxLeaves + ' time' + (i.maxLeaves === 1 ? '' : 's') + ' locks the exam.' : '',
+      'Reloading the page counts as leaving.',
+    ]),
     i.s.copyBlock ? 'Copying and pasting are disabled.' : '',
-    'Reloading the page counts as leaving.',
     i.fu ? 'After the main questions you may get ' + i.fu + ' short follow-up question' + (i.fu === 1 ? '' : 's') + ' about your own problems.' : '',
     i.spot ? 'When you finish, you will be asked to upload a photo of your handwritten solution for ' + i.spot + ' of your problems within ' + i.spotMins + ' minutes. Keep your scratch paper and a camera ready.' : '',
   ].filter(Boolean);
@@ -77,6 +84,8 @@ function banners() {
   const B = (t, extra = '') => `<div class="alert" style="max-width:900px;margin:0 auto 8px;justify-content:space-between;align-items:center"><span>${t}</span>${extra}</div>`;
   if (v && v.status === 'in_progress') {
     if (canFs && !inFs()) out.push(B((S.fs ? 'You left fullscreen. This was recorded. ' : 'Please return to fullscreen. '), '<button class="btn sm" onclick="enterFs()" type="button">Return to fullscreen</button>'));
+    if (v.aw && v.forfeit) out.push(B(v.aw.pct >= 100 ? 'You were away too long. This question will not count unless your professor restores it.' : 'You were away too long. This question loses ' + v.aw.pct + '% of its points unless your professor restores it.'));
+    else if (v.aw && v.leaves > 0) out.push(B('Free time away left: ' + v.aw.bank + ' s. Stay on this screen.'));
     if (v.max > 0 && v.leaves > 0) out.push(B('You have left the exam ' + v.leaves + ' time' + (v.leaves === 1 ? '' : 's') + '. The exam locks at ' + v.max + '.'));
     if (S.ann) out.push(B('📢 ' + esc(S.ann.text)));
   }
@@ -94,7 +103,7 @@ function setView(v) {
     app.innerHTML = `<div class="qcard c">
 <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:30px;background:${lk ? '#FEF3C7' : '#BDF5D6'};color:${lk ? '#B45309' : '#1A7F4B'}">${lk ? '!' : '✓'}</div>
 <h1 style="font-size:26px;margin-bottom:8px">${lk ? 'Exam locked' : 'Exam submitted'}</h1>
-<p class="mu" style="margin:0 0 24px">${lk ? 'You left the exam too many times, so it was locked. Your answers so far were saved. Please see your professor.' : 'Your answers were recorded.' + (v.canReview || v.later || v.score !== undefined ? '' : ' Your professor will share results.')}</p>
+<p class="mu" style="margin:0 0 24px">${lk ? 'You left the exam too often or for too long, so it was locked. Your answers so far were saved. Please see your professor.' : 'Your answers were recorded.' + (v.canReview || v.later || v.score !== undefined ? '' : ' Your professor will share results.')}</p>
 <div class="recap">${v.score !== undefined ? `<div class="rw"><span>Score</span><b style="color:var(--ok);font-size:18px">${esc(v.score)} / ${esc(v.of)}</b></div>` : ''}
 ${v.later ? '<div class="rw"><span>Results</span><b style="font-family:Inter,sans-serif;font-weight:500">Available after your professor closes the exam</b></div>' : ''}
 <div class="rw"><span>Submission receipt</span><b style="user-select:all;-webkit-user-select:all">${esc(v.receipt || '')}</b></div><button class="btn sec" type="button" onclick="copyText('${esc(v.receipt || '')}').then(ok => toast(ok ? 'Receipt copied' : 'Select the receipt and copy it'))">Copy receipt</button><div class="mu" style="font-size:12px">Copy or screenshot the receipt as proof you finished.</div></div>
@@ -119,11 +128,11 @@ function showQ() {
 <div class="qcount" aria-label="Progress"><b>${v.f ? 'Follow-up ' : 'Question '}${v.cur + 1} / ${v.total}</b><div class="bar" role="progressbar" aria-valuemin="1" aria-valuemax="${v.total}" aria-valuenow="${v.cur + 1}"><i style="width:${Math.round((v.cur + 1) / v.total * 100)}%"></i></div></div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><span class="tag">${v.f ? 'Follow-up' : num ? 'Numeric answer' : 'Single choice'}</span><span class="mu" style="font-size:12px">${v.t}s</span></div>
 ${v.f ? `<div class="recap" style="margin:16px 0 0;font-size:14px;color:var(--mu)">Your problem was:<span style="color:var(--tx)">${MathFmt.rich(v.ctx)}</span></div>` : ''}
-<h2 class="qtext">${MathFmt.rich(v.q)}</h2>
+<h2 class="qtext">${MathFmt.rich(v.q)}</h2>${v.img ? `<img class="qimg" src="${esc(v.img)}" alt="${esc(v.imgAlt || 'Picture for this question')}" draggable="false" onclick="zoomImg(this.src)" title="Tap to zoom" onerror="this.outerHTML='<p class=&quot;bad&quot;>The picture did not load. Reload the page; your time keeps running.</p>'">` : ''}
 ${num ? `<div>${numIn}</div><div class="numprev" id="np"></div>` : `<div class="tiles">${tiles}</div>`}
 <div class="qfoot"><span class="mu" style="font-size:12px">Irreversible: you cannot return once you continue</span>
 <button class="btn" id="lockbtn" onclick="lock()" type="button" disabled>Lock in answer</button></div></div>
-<div style="max-width:900px;margin:12px auto 0;display:flex;justify-content:space-between;gap:8px">${S.info.s.calc ? '<button class="btn ghost sm" onclick="tools()" type="button">Calculator &amp; formulas</button>' : '<span></span>'}<button class="btn ghost sm" onclick="flagQ(this)" type="button">Report unclear question</button></div></div>`;
+<div style="max-width:900px;margin:12px auto 0;display:flex;justify-content:space-between;gap:8px">${S.info.s.calc ? '<button class="btn ghost sm" onclick="tools()" type="button">Calculator &amp; formulas</button>' : '<span></span>'}${v.f ? '<span></span>' : `<button class="btn ghost sm" onclick="flagQ(this)" type="button"${v.reported ? ' disabled' : ''}>${v.reported ? 'Reported' : 'Report unclear question'}</button>`}</div></div>`;
   setLock(); np(); tick();
 }
 function np() {   // shows how a typed answer like 1/4 or 3x10^8 will be read
@@ -194,7 +203,19 @@ function cc() {
   try { $('cr').textContent = '= ' + (+calcEval($('cx').value).toPrecision(10)); }
   catch (e) { $('cr').textContent = 'Error'; }
 }
-function flagQ(b) { ev('flag'); b.textContent = 'Reported'; b.disabled = true; }
+/* tap a picture to open it large; scroll or pinch inside to read small numbers */
+function zoomImg(src) {
+  if ($('zoom')) return;
+  const d = document.createElement('div'); d.id = 'zoom'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Picture, enlarged');
+  d.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);overflow:auto;-webkit-overflow-scrolling:touch;padding:12px';
+  d.innerHTML = '<button type="button" class="btn sm" style="position:fixed;top:12px;right:12px;z-index:61">Close</button><img alt="" style="display:block;margin:40px auto 0;width:max(100%,1000px);max-width:none;height:auto;background:#fff;border-radius:6px">';
+  d.querySelector('img').src = src;
+  const close = () => { d.remove(); document.removeEventListener('keydown', esc); };
+  const esc = e => { if (e.key === 'Escape') close(); };
+  d.querySelector('button').onclick = close; document.addEventListener('keydown', esc);
+  document.body.appendChild(d); d.querySelector('button').focus();
+}
+function flagQ(b) { ev('flag'); b.textContent = 'Reported'; b.disabled = true; if (S.v) S.v.reported = true; }
 
 async function spoll() {
   if (!S.v || S.v.status !== 'in_progress' || busy) return;
@@ -247,22 +268,22 @@ function shrink(file) {
 }
 
 /* ---- proctoring events ---- */
-async function ev(k) {
+async function ev(k, d) {
   if (!S.v || S.v.status !== 'in_progress') return;
-  try { const j = await api('event', { eid: EID, sid: S.sid, token: S.token, k }); if (j.view.status !== 'in_progress' || k === 'back') setView(j.view); else if (k !== 'flag') { S.v.leaves = j.view.leaves; banners(); } } catch (e) { /* ignore */ }
+  try { const j = await api('event', { eid: EID, sid: S.sid, token: S.token, k, d }); if (j.view.status !== 'in_progress' || k === 'back') setView(j.view); else if (k !== 'flag') { S.v.leaves = j.view.leaves; S.v.aw = j.view.aw; S.v.forfeit = j.view.forfeit; banners(); } } catch (e) { /* ignore */ }
 }
 /* a window losing focus for under 2 seconds (keyboard, notification) is ignored; phones only report real app switches */
 function leave(k) {
   if (!S.v || S.v.status !== 'in_progress') return;
   if (k === 'window_blur' && COARSE) return;
   if (away) { if (lt && k !== 'window_blur') { clearTimeout(lt); lt = null; ev(k); } return; }
-  away = true;
+  away = true; awayT = Date.now();
   if (k === 'window_blur') lt = setTimeout(() => { lt = null; if (away) ev(k); }, 2000); else ev(k);
 }
 function back() {
   if (!away) return; away = false;
   if (lt) { clearTimeout(lt); lt = null; return; }   // short blip, never reported
-  ev('back');
+  ev('back', Date.now() - awayT);   // the browser's own clock, in case the phone could not send "left" while hidden
 }
 document.addEventListener('visibilitychange', () => document.hidden ? leave('tab_hidden') : back());
 addEventListener('blur', () => leave('window_blur')); addEventListener('focus', back);

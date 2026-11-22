@@ -11,12 +11,12 @@ chrome({ nav: [['Exams', 'student.html', 'e']], active: 'e', who: { name: W.name
 const EID = new URLSearchParams(location.search).get('id') || '', TOKEN = attempts()[EID];
 const back = '<a class="btn" href="student.html"><span class="ms">arrow_back</span>Back to exams</a>';
 let R = null, ONLY_WRONG = false;
-const STATE = { right: ['check_circle', 'Correct'], wrong: ['cancel', 'Incorrect'], none: ['timer_off', 'No answer'] };
+const STATE = { right: ['check_circle', 'Correct'], wrong: ['cancel', 'Incorrect'], none: ['timer_off', 'No answer'], forfeit: ['block', 'Did not count (away too long)'] };
 
 function item(r) {
   const [ic, lbl] = STATE[r.state];
   return `<article class="rs-item ${r.state}"><div class="h"><span>Question ${r.n}</span><span class="vb ${r.state}"><span class="ms" style="font-size:16px">${ic}</span>${lbl} · ${r.pts} / ${r.of} pt${r.of === 1 ? '' : 's'}</span></div>
-<div class="q">${MathFmt.rich(r.q)}</div>
+<div class="q">${MathFmt.rich(r.q)}</div>${r.img ? `<img class="qimg" src="${esc(r.img)}" alt="${esc(r.imgAlt || 'Picture for this question')}">` : ''}
 <div class="a"><span>Your answer</span><b>${r.got ? MathFmt.rich(r.got) : '<span class="mu">Not answered (time ran out)</span>'}</b>${r.exp !== undefined ? `<span>Correct answer</span><b class="ok">${MathFmt.rich(r.exp)}</b>` : ''}</div></article>`;
 }
 function draw() {

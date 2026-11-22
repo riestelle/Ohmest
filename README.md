@@ -47,6 +47,7 @@ Click **New exam**, then add questions on the **Questions** tab.
 - **Multiple choice**: type the choices and click the letter next to the right one.
 - **Numeric answer**: type the accepted answer (or several, separated by commas) and a tolerance in percent. You can also ask for units.
 - **Different numbers per student**: for a numeric question, switch to random numbers, put variables in curly braces in the question (for example `{m}` and `{a}`), set a range for each, and type the answer formula (for example `m*a`). Use **Preview a sample student** to check it.
+- **Picture**: any question can have one picture (a circuit, graph or figure) shown under the question text. Use **Add picture** on the question, pick a JPEG or PNG, and add a short description for screen readers. A picture that is already small enough is uploaded exactly as it is. A bigger one is shrunk in your browser to at most 1600 px as a PNG first (lines and numbers stay sharp), and only photos fall back to JPEG. Students can tap a picture on the exam page to enlarge it, and scroll or pinch to read small numbers. Up to 40 pictures per exam. Pictures can only be added or changed while the exam is closed. Students also see them in their review. Deleting the exam deletes its pictures.
 - **Follow-up question**: attach a short multiple-choice question to a problem. Students who got the problem right may be asked it afterwards.
 - **Paste many questions**: paste several multiple-choice questions at once, with a blank line between them. Example:
 
@@ -72,7 +73,7 @@ Open the **Settings** tab. Every option shows its default, and **Reset to defaul
 | **Defaults for new questions** | Time, points and tolerance that new questions start with. **Apply to all** pushes them onto existing questions. |
 | **Question order** | Shuffle questions and/or answer choices for each student. |
 | **Scoring** | Negative marking (a percent of the question's points), unit checking, and whether several accepted answers count. |
-| **Anti-cheating** | How many times a student can leave the exam before it locks (0 means never), copy/paste/right-click blocking, and asking for fullscreen. |
+| **Anti-cheating** | What happens when a student leaves the exam (see below), copy/paste/right-click blocking, and asking for fullscreen. |
 | **After the exam** | When students see results, and whether they see their score, a question-by-question review, and the correct answers. |
 | **Student tools** | A built-in calculator and formula sheet, plus your own extra formulas or notes. |
 | **Integrity checks** | Follow-up questions, and handwritten-work photos (see below). |
@@ -80,7 +81,7 @@ Open the **Settings** tab. Every option shows its default, and **Reset to defaul
 | **Class list** | Paste the student IDs allowed to enter. Leave it empty to let anyone from your school in. |
 | **Google Sheets** | Send each finished attempt to a spreadsheet (see [Live results in Google Sheets](#live-results-in-google-sheets)). |
 
-New exams start with shuffling, copy blocking and fullscreen on, three allowed departures, and results released when you close the exam. Students see their score and review, but not the correct answers.
+New exams start with shuffling, copy blocking and fullscreen on, the **time away** rule, and results released when you close the exam. Students see their score and review, but not the correct answers.
 
 ### 4. Open the exam
 
@@ -98,6 +99,15 @@ On the **Results** tab you can:
 - **Reset** one student to wipe their attempt completely so they start again (they get a new random order and new numbers)
 
 ### 6. Review the results
+
+**Leaving the exam.** Pick one of two rules in Settings > Anti-cheating:
+
+- **Time away** (default for new exams). Breaks under 5 seconds are ignored. Each student then has 30 seconds of free time away in total. Once that is used up, the next long leave cancels the question they left on: it scores 0 (or loses the share of points you set), and a wrong answer there costs nothing. The student sees a banner straight away. Reloading the page is logged but never counts. You can also lock the exam after a total number of minutes away (off by default). All four numbers are yours to change.
+- **Leave count**. The old rule: the whole exam locks after a number of leaves, and a reload counts as a leave. Exams made before this update keep this rule until you switch them.
+
+If a student had a good reason (bad wifi, a power cut), open their row in Results and press **Restore** next to the forfeited question. It counts normally again and the restore is written in their activity log. Phones can't always report that they left while the page is hidden, so the server also trusts the time the student's browser measured; a student can only make this worse for themselves, never better.
+
+**Reported questions.** When students tap *Report unclear question*, a red card appears at the top of Results listing each reported question, how many students reported it and who. The Item analysis table has a Reports column, a student's detail shows what they reported, and the Excel file has a "Reported unclear by" column. One report per student per question. Reports never count as cheating and never change scores; fix the key or tell the class with the announcement box.
 
 The **Results** tab shows every student's score, how often they left the exam, how long they were away, and an **integrity risk** of Low, Medium or High.
 
@@ -155,12 +165,11 @@ Use **Send all results now** to push everything that's already finished.
 
 - Every question has its **own timer**. When it runs out, your answer locks automatically. If you haven't picked anything, it counts as unanswered.
 - You **can't go back** to earlier questions.
-- **Stay on the exam screen.** Switching tabs or apps, or leaving fullscreen, is recorded and shown to your professor. If you leave too many times, the exam locks.
-- **Reloading the page counts as leaving.** Avoid it unless you have to.
+- **Stay on the exam screen.** Switching tabs or apps, or leaving fullscreen, is recorded and shown to your professor. Short breaks are free and you get some free time away in total. After that, leaving makes the question you were on not count. If you had a good reason, ask your professor to restore it. (If your professor uses the older rule, leaving too many times locks the exam and a reload counts as leaving. The start screen tells you which rule applies.)
 - Copying, pasting and right-clicking may be turned off.
 - Your professor may show a built-in **calculator and formula sheet**.
 - After you finish, you might get a couple of **follow-up questions** about your own problems, or be asked to **upload a photo of your handwritten work** within a few minutes. Keep scratch paper and your camera handy.
-- If a question looks wrong, tap **Report unclear question**.
+- If a question looks wrong, tap **Report unclear question**. Your professor sees it in Results. It does not change your score by itself.
 
 ### Typing numeric answers
 
@@ -208,7 +217,7 @@ Answer formulas are forgiving: `0.5*a*t^2`, `0.5at^2`, `F = m a`, `2(x+1)`, `sqr
 ## Questions and answers (FAQ)
 
 **A student says the exam is locked.**
-They left the exam more times than you allowed. Check their activity log. If it was a genuine accident (a refresh on a weak connection, say), press **Unlock** on their row and they carry on with their answers kept. Use **Reset** only if you want them to start from scratch, because they'll then see new random numbers and a new question order.
+They left the exam more times than you allowed, or were away longer than the total you set. Check their activity log. If it was a genuine accident (a refresh on a weak connection, say), press **Unlock** on their row and they carry on with their answers kept. Use **Reset** only if you want them to start from scratch, because they'll then see new random numbers and a new question order.
 
 **A student sees "This ID already started the exam on another device."**
 Ohmest remembers each attempt in the browser it started in. If they switched browsers or cleared their data mid-exam, use **Reset** for that student.
@@ -312,6 +321,8 @@ An attempt is saved whole, so the server takes a short per-student lock (stored 
 ## Privacy and good-to-know limits
 
 **Where your data lives.** Everything is stored in your own Upstash database. Students are identified only by the name and ID they type. Professors' passwords are salted and hashed. Handwritten-work photos are stored in the database and deleted when you reset a student, clear attempts or delete the exam. If you use Google Sheets, a copy of the results (names, IDs, scores, flags) also lives in your sheet.
+
+**Pictures and storage.** Question pictures are stored in the same Redis database, up to about 500 KB each, and are served by the same function with a long cache, so the Vercel CDN answers most requests without touching Redis. A picture you upload but never save is removed after 30 days. No second database or file storage is needed.
 
 **Outside services.** The pages load fonts and icons from Google Fonts. Nothing else is fetched from the internet; the Excel export is built in.
 

@@ -9,17 +9,18 @@
 <script>
 /* PROFESSOR PAGE. Every action here is checked by the server with a signed login token. */
 /* DEF = what a new exam starts with. LEG = what an older exam gets for settings it never had (so nothing changes for it). */
-const DEF = { shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, showKey: false, release: 'closed', calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '', pin: '', maxLeaves: 3, defTime: 30, defPts: 1, defTol: 2 };
-const LEG = { ...DEF, showScore: false, showReview: false, showKey: false, release: 'finish' };
+const DEF = { shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, showKey: false, release: 'closed', calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '', pin: '', rule: 'away', awayFree: 5, awayBank: 30, awayPen: 100, awayLock: 0, maxLeaves: 3, defTime: 30, defPts: 1, defTol: 2 };
+const LEG = { ...DEF, rule: 'count', showScore: false, showReview: false, showKey: false, release: 'finish' };
 const EID = new URLSearchParams(location.search).get('id') || '';
 let SCH = null, cfg = null, qs = [], SET = { ...DEF }, title = '', atts = [], qstat = [], tab = 'q', open = new Set(), poll = null, IMG = {};
-const blank = () => ({ q: '', c: ['', '', '', ''], a: 0, t: SET.defTime || 30, type: 'mc', pts: SET.defPts ?? 1, v: '', tol: SET.defTol ?? 2, u: '', mode: 'fixed', vars: [], f: '', fu: null });
+const blank = () => ({ q: '', c: ['', '', '', ''], a: 0, t: SET.defTime || 30, type: 'mc', pts: SET.defPts ?? 1, v: '', tol: SET.defTol ?? 2, u: '', mode: 'fixed', vars: [], f: '', fu: null, img: '', imgAlt: '' });
 const fromSrv = (q, k = {}) => ({
   q: q.q, type: q.type || 'mc', c: q.c && q.c.length ? [...q.c] : ['', '', '', ''], a: k.a || 0, t: q.t, pts: q.pts ?? 1,
   v: (k.v || []).join(', '), tol: k.tol ?? 2, u: k.u || '', mode: k.f ? 'rand' : 'fixed', vars: (q.vars || []).map(x => ({ ...x })), f: k.f || '',
   fu: q.fu ? { q: q.fu.q, c: [...q.fu.c], a: k.fa || 0, t: q.fu.t } : null,
+  img: q.img || '', imgAlt: q.imgAlt || '',
 });
-const evn = e => ({ unlocked: 'Professor unlocked the exam', tab_hidden: 'Switched tab / app', window_blur: 'Window lost focus', fullscreen_exit: 'Exited fullscreen', back: 'Returned after ' + Math.round((e.d || 0) / 1000) + 's', resumed: 'Reloaded the page', paste: 'Tried to copy/paste', keys: 'Blocked shortcut', flag: 'Flagged the question as unclear', nofs: 'Fullscreen not available on this device' }[e.k] || e.k) + (e.qi != null && e.k !== 'back' ? ' (Q' + (e.qi + 1) + ')' : '');
+const evn = e => ({ unlocked: 'Professor unlocked the exam', forfeit: 'Question forfeited (away too long)', restored: 'Professor restored the question', tab_hidden: 'Switched tab / app', window_blur: 'Window lost focus', fullscreen_exit: 'Exited fullscreen', back: 'Returned after ' + Math.round((e.d || 0) / 1000) + 's', resumed: 'Reloaded the page', paste: 'Tried to copy/paste', keys: 'Blocked shortcut', flag: 'Flagged the question as unclear', nofs: 'Fullscreen not available on this device' }[e.k] || e.k) + (e.qi != null && e.k !== 'back' ? ' (Q' + (e.qi + 1) + ')' : '');
 const fmt = x => String(+Number(x).toPrecision(6));
 const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(vars, k) ? fmt(vars[k]) : m));
 const varTxt = v => Object.entries(v || {}).map(([k, x]) => k + ' = ' + x).join(', ');
@@ -120,7 +121,12 @@ function profS() {
       + row('Check units on numeric answers', 'When a question has a unit, the student must type it too.', sw('units'), 'units')
       + row('Accept several answers', 'On fixed numeric questions, any of the accepted answers you list counts.', sw('multi'), 'multi'))
     + sec('shield', 'Anti-cheating', null,
-      row('Lock after leaving', 'Lock a student out after they leave the exam this many times. 0 means never lock.', nin('maxLeaves', 0, 99, 'times'), 'maxLeaves')
+      row('When a student leaves the exam', 'Time away: short breaks are free, a long leave cancels that one question (you can restore it). Leave count: the whole exam locks after a number of leaves, and a reload counts as a leave.', `<select data-s="rule"><option value="away" ${SET.rule === 'away' ? 'selected' : ''}>Time away (recommended)</option><option value="count" ${SET.rule !== 'away' ? 'selected' : ''}>Leave count</option></select>`, 'rule')
+      + row('Time away: free break', 'Leaving for less than this is ignored. Covers notifications and page reloads.', nin('awayFree', 0, 60, 'seconds'), 'awayFree')
+      + row('Time away: free time in total', 'Longer breaks use this up first. Once it is used up, the next long leave cancels the question they left on.', nin('awayBank', 0, 600, 'seconds'), 'awayBank')
+      + row('Time away: points taken off', 'Share of that question’s points removed. 100 means the question scores 0. You can restore it in Results.', nin('awayPen', 0, 100, '%'), 'awayPen')
+      + row('Time away: lock the exam after', 'Total time away that locks the whole exam as a last resort. 0 means never lock.', nin('awayLock', 0, 240, 'minutes'), 'awayLock')
+      + row('Leave count: lock after leaving', 'Only used with the “Leave count” rule. 0 means never lock.', nin('maxLeaves', 0, 99, 'times'), 'maxLeaves')
       + row('Block copy, paste and right-click', 'Also blocks print and save shortcuts.', sw('copyBlock'), 'copyBlock')
       + row('Ask for fullscreen', 'Where the device supports it. Leaving fullscreen counts as leaving the exam.', sw('fsTrack'), 'fsTrack'))
     + sec('visibility', 'After the exam: what students can see', 'Students open this from their exam list or from the “Submitted” screen.',
@@ -177,11 +183,47 @@ const qCard = (q, i) => {
  <span style="flex:1"></span>
  <button class="icb" onclick="mvQ(${i},-1)" ${i === 0 ? 'disabled' : ''} type="button" title="Move up" aria-label="Move up"><span class="ms">arrow_upward</span></button><button class="icb" onclick="mvQ(${i},1)" ${i === last ? 'disabled' : ''} type="button" title="Move down" aria-label="Move down"><span class="ms">arrow_downward</span></button><button class="icb" onclick="dupQ(${i})" type="button" title="Duplicate" aria-label="Duplicate"><span class="ms">content_copy</span></button><button class="icb dg" onclick="delQ(${i})" type="button" title="Delete" aria-label="Delete question"><span class="ms">delete</span></button></div>
  <div class="qe-b"><label class="lbl" for="qt${i}">Question</label><textarea id="qt${i}" data-i="${i}" data-f="q" placeholder="Type the question. Formulas like x=y/z or v^2 are shown in standard notation.">${esc(q.q)}</textarea><div class="pvw" id="qp${i}" style="white-space:pre-wrap">${qPrev(q.q)}</div>
+ ${imgRow(q, i)}
  ${num ? (q.mode === 'rand' ? randRow(q, i) : numRow(q, i))
       : `<span class="lbl">Answer choices <small>Click the letter to mark the correct one</small></span>${choiceRows('a', q.c, q.a, i, 'c')}${q.c.length < 6 ? `<button class="g s" onclick="addChoice(${i})" type="button">+ Add choice</button>` : ''}`}
  ${fuRow(q, i)}</div>
  <div class="qe-f"><label>Time <input type="number" min="5" data-i="${i}" data-f="t" value="${q.t}"> seconds</label><label>Points <input type="number" min="0" step="0.5" data-i="${i}" data-f="pts" value="${q.pts}"></label></div></div>`;
 };
+/* a picture on a question (circuit, graph, figure): shrunk here, then stored by the server and shown to students under the question */
+const imgRow = (q, i) => q.img
+  ? `<div class="imgrow"><img class="qimg-prev" src="/api?img=${EID}.${esc(q.img)}" alt="Picture for question ${i + 1}"><div><label class="lbl" for="qa${i}">Picture description <small>read aloud by screen readers; also helps if the picture does not load</small></label><input id="qa${i}" data-i="${i}" data-f="imgAlt" maxlength="200" value="${esc(q.imgAlt || '')}" placeholder="e.g. Circuit with a 10 Ω and a 20 Ω resistor in series"><div class="row" style="margin-top:8px"><button class="g s" onclick="this.nextElementSibling.click()" type="button">Change picture</button><input type="file" accept="image/*" hidden onchange="pickQImg(${i},this)"><button class="d s" onclick="rmQImg(${i})" type="button">Remove picture</button></div></div></div>`
+  : `<div class="imgrow"><button class="g s" onclick="this.nextElementSibling.click()" type="button"><span class="ms">add_photo_alternate</span> Add picture</button><input type="file" accept="image/*" hidden onchange="pickQImg(${i},this)"><span class="mu" id="qim${i}">Optional. JPEG or PNG. Big diagrams keep their detail; students can tap to zoom.</span></div>`;
+/* Keep diagrams readable: a picture that already fits goes up untouched; otherwise PNG first (crisp lines and numbers), JPEG only if PNG cannot fit (photos) */
+const readURL = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(new Error('Could not read that file.')); r.readAsDataURL(f); });
+function shrinkQ(file) {
+  const CAP = 650000;   // characters; the server accepts up to 700000
+  return new Promise((res, rej) => {
+    const im = new Image(), u = URL.createObjectURL(file);
+    im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('Could not read that picture. Try a JPEG or PNG.')); };
+    im.onload = async () => {
+      URL.revokeObjectURL(u);
+      const big = Math.max(im.width, im.height);
+      if ((file.type === 'image/png' || file.type === 'image/jpeg') && big <= 2000 && file.size * 1.34 <= CAP) { try { return res(await readURL(file)); } catch (e) { return rej(e); } }
+      const draw = d => {
+        const k = Math.min(1, d / big), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k));
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+        return c;
+      };
+      for (const d of [1600, 1400, 1200, 1000]) { const s = draw(d).toDataURL('image/png'); if (s.length <= CAP) return res(s); }
+      for (const [d, q] of [[1600, .9], [1400, .82], [1200, .74], [1000, .64]]) { const s = draw(d).toDataURL('image/jpeg', q); if (s.length <= CAP) return res(s); }
+      rej(new Error('The picture is too detailed to shrink enough. Crop it or use a simpler one.'));
+    };
+    im.src = u;
+  });
+}
+async function pickQImg(i, inp) {
+  const f = inp.files[0]; if (!f) return;
+  const m = $('qim' + i); if (m) m.textContent = 'Uploading…';
+  try { const img = await shrinkQ(f), j = await A('qimg', { img }); qs[i].img = j.id; touch(); toast('Picture added. Remember to Save.'); }
+  catch (e) { if (m) m.innerHTML = '<span class="bad">' + esc(e.message || 'Upload failed') + '</span>'; else alert(e.message); }
+}
+const rmQImg = i => { qs[i].img = ''; qs[i].imgAlt = ''; touch(); };
 const setType = (i, t) => { qs[i].type = t; if (t === 'mc' && (!qs[i].c || qs[i].c.length < 2)) qs[i].c = ['', '', '', '']; touch(); };
 const setMode = (i, m) => { const q = qs[i]; q.mode = m; if (m === 'rand' && !q.vars.length) q.vars.push({ n: '', min: 1, max: 10, step: 1 }); touch(); };
 const mvQ = (i, d) => { const j = i + d; if (j < 0 || j >= qs.length) return; [qs[i], qs[j]] = [qs[j], qs[i]]; touch(); };
@@ -200,7 +242,7 @@ const saveBar = () => `<p class="mu" style="margin-top:18px">Students sign in at
 document.addEventListener('input', e => {
   const d = e.target.dataset; if (!d || d.i === undefined) return; const q = qs[+d.i], f = d.f, v = e.target.value;
   if (f === 'q') { q.q = v; const p = $('qp' + d.i); if (p) p.innerHTML = qPrev(v); }
-  else if (f === 't') q.t = +v || SET.defTime || 30; else if (f === 'pts') q.pts = +v; else if (f === 'v') q.v = v; else if (f === 'tol') q.tol = +v; else if (f === 'u') q.u = v;
+  else if (f === 't') q.t = +v || SET.defTime || 30; else if (f === 'pts') q.pts = +v; else if (f === 'v') q.v = v; else if (f === 'tol') q.tol = +v; else if (f === 'u') q.u = v; else if (f === 'imgAlt') q.imgAlt = v;
   else if (f === 'fm') { q.f = v; const p = $('fp' + d.i); if (p) p.innerHTML = fPrev(v); }
   else if (f === 'vn' || f === 'vmin' || f === 'vmax' || f === 'vstep') { const x = q.vars[+d.j]; if (f === 'vn') x.n = v; else if (f === 'vmin') x.min = v; else if (f === 'vmax') x.max = v; else x.step = v; }
   else if (f === 'fq') q.fu.q = v; else if (f === 'ft') q.fu.t = +v || 25; else if (f.startsWith('fc')) q.fu.c[+f.slice(2)] = v; else if (f[0] === 'c') q.c[+f.slice(1)] = v;
@@ -212,7 +254,7 @@ document.addEventListener('change', e => {
     e.target.closest('.chrs').querySelectorAll('.chr').forEach((r, j) => { const ok = j === +e.target.value; r.classList.toggle('ok', ok); r.querySelector('.ctag').textContent = ok ? '✔ Correct' : ''; });
   } else if (d.f === 'fuOn') { q.fu = e.target.checked ? (q.fu || { q: '', c: ['', '', '', ''], a: 0, t: 25 }) : null; renderProf(); }
 });
-const payload = () => qs.map(q => ({ q: q.q, type: q.type, c: q.c, a: q.a, t: q.t, pts: q.pts, v: q.v, tol: q.tol, u: q.u, vars: q.mode === 'rand' ? q.vars : [], f: q.mode === 'rand' ? q.f : '', fu: q.fu }));
+const payload = () => qs.map(q => ({ q: q.q, type: q.type, c: q.c, a: q.a, t: q.t, pts: q.pts, v: q.v, tol: q.tol, u: q.u, vars: q.mode === 'rand' ? q.vars : [], f: q.mode === 'rand' ? q.f : '', fu: q.fu, img: q.img || '', imgAlt: q.imgAlt || '' }));
 async function prev(i) {
   const m = $('pv' + i); m.innerHTML = '<span class="mu">Working…</span>';
   try {
@@ -256,18 +298,22 @@ function profR() {
     const det = open.has(a.sid) ? `<tr><td colspan="8" style="white-space:normal;background:var(--bg)">${detail(a)}</td></tr>` : '';
     return `<tr><td data-act="tg" data-sid="${sid}" style="cursor:pointer"><b>${esc(a.name)}</b><br><span class="mu">${sid}</span></td><td>${a.status === 'in_progress' ? 'In progress ' + esc(a.prog) : a.status === 'locked' ? '<span class="bad">Locked</span>' : 'Done'}</td><td>${a.score}/${a.of}</td><td><span class="risk r-${a.risk}">${a.risk}</span>${a.review ? '<br><span class="mu">' + (a.review === 'cleared' ? 'Cleared' : 'Needs oral check') + '</span>' : ''}</td><td class="${a.leaves ? 'bad' : ''}">${a.leaves}×</td><td>${a.away}s</td><td>${a.workReq.length ? a.work.length + '/' + a.workReq.length : '—'}</td><td>${a.status === 'locked' ? `<button class="g s" data-act="unlock" data-sid="${sid}" title="Let this student continue with their answers kept">Unlock</button> ` : ''}<button class="d" data-act="reset" data-sid="${sid}" title="Delete the attempt so the student starts over">Reset</button></td></tr>${det}`;
   }).join('');
-  const items = qstat.map(q => `<tr><td>Q${q.n}</td><td style="white-space:normal;min-width:200px">${esc(q.q)}${q.rand ? ' <span class="mu">(random numbers)</span>' : ''}</td><td style="white-space:normal">${esc(q.key)}</td><td>${q.pct == null ? '' : Math.round(q.pct * 100) + '%'}</td><td>${q.avg == null ? '' : Math.round(q.avg / 100) / 10 + 's'}</td><td>${q.t}s</td></tr>`).join('');
+  const rq = qstat.filter(q => q.rep > 0);
+  const repCard = rq.length ? `<div class="card" style="border-color:var(--bad,#c0392b)"><b>⚑ Students reported unclear questions</b><div class="mu" style="margin:4px 0 8px">Check the wording or the key. If it is wrong, tell everyone with the announcement box above, then fix scores by hand or after the exam.</div>${rq.map(q => `<div style="margin:6px 0"><b>Q${q.n}</b> · ${q.rep} student${q.rep === 1 ? '' : 's'} (${esc(q.repBy.join(', '))})<div class="mu">${esc(q.q.length > 140 ? q.q.slice(0, 140) + '…' : q.q)}</div></div>`).join('')}</div>` : '';
+  const items = qstat.map(q => `<tr><td>Q${q.n}</td><td style="white-space:normal;min-width:200px">${esc(q.q)}${q.rand ? ' <span class="mu">(random numbers)</span>' : ''}</td><td style="white-space:normal">${esc(q.key)}</td><td>${q.pct == null ? '' : Math.round(q.pct * 100) + '%'}</td><td>${q.avg == null ? '' : Math.round(q.avg / 100) / 10 + 's'}</td><td>${q.t}s</td><td class="${q.rep ? 'bad' : ''}">${q.rep || ''}</td></tr>`).join('');
   return `<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div>
+ ${repCard}
  <div class="row"><button onclick="exportX()">Download Excel (.xlsx)</button><button class="g" onclick="setTab('r')">Refresh</button>${SET.sheetUrl ? '<button class="g" onclick="pushNow(this)">Send to Google Sheet</button>' : ''}<button class="d" data-act="clear">Clear all attempts</button></div>
  <div class="row mu" style="margin:10px 0"><span>${atts.length} attempt(s)</span><span>· ${done.length} finished</span><span>· class average ${avg}%</span><span>· <b class="${hi.length ? 'bad' : ''}">${hi.length} high</b> / ${me.length} medium risk</span></div>
  <p class="mu">Updates every 30 s. Tap a name for details. Risk is a hint to look closer (a person decides), built from tab switching, answer speed, similarity to other students, follow-up and work-photo checks.</p>
  <div class="card scroll"><table><tr><th>Student</th><th>Status</th><th>Score</th><th>Risk</th><th>Left</th><th>Away</th><th>Work</th><th></th></tr>${rows || '<tr><td colspan="8" class="mu">No attempts yet.</td></tr>'}</table></div>
- <details class="card"><summary><b>Item analysis</b> (which questions the class missed)</summary><div class="scroll"><table><tr><th>Q</th><th>Question</th><th>Key</th><th>% correct</th><th>Avg time</th><th>Limit</th></tr>${items}</table></div></details>`;
+ <details class="card"><summary><b>Item analysis</b> (which questions the class missed)</summary><div class="scroll"><table><tr><th>Q</th><th>Question</th><th>Key</th><th>% correct</th><th>Avg time</th><th>Limit</th><th>Reports</th></tr>${items}</table></div></details>`;
 }
 function detail(a) {
   const sid = esc(a.sid);
   const fl = a.flags.length ? a.flags.map(f => `<div class="fl ${f.w >= 2 ? 'bad' : ''}">${f.w >= 2 ? '⚠' : '•'} ${esc(f.txt)}</div>`).join('') : '<div class="mu">No flags.</div>';
-  const rw = a.rows.map((r, i) => r.ok === -1 ? '' : `<tr><td>Q${i + 1}</td><td>${esc(varTxt(r.vars))}</td><td>${esc(r.got)}</td><td>${esc(r.exp)}</td><td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? '✔' : r.to ? 'time' : '✘'}</td><td>${Math.round(r.ms / 100) / 10}s</td></tr>`).join('');
+  const rw = a.rows.map((r, i) => r.ok === -1 && !r.pen ? '' : `<tr><td>Q${i + 1}</td><td>${esc(varTxt(r.vars))}</td><td>${esc(r.got)}</td><td>${esc(r.exp)}</td><td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? '✔' : r.to ? 'time' : '✘'}${r.pen ? `<br><span class="bad">Forfeited${r.pen.pct < 100 ? ' (−' + r.pen.pct + '%)' : ''}</span><br><button class="g s" data-act="restore" data-sid="${sid}" data-qi="${i}">Restore</button>` : ''}</td><td>${Math.round(r.ms / 100) / 10}s</td></tr>`).join('');
+  const rp = a.rep && a.rep.length ? '<div class="mu">Reported unclear: ' + a.rep.map(n => 'Q' + n).join(', ') + '</div>' : '';
   const fu = a.fu.length ? '<div class="mu">Follow-ups: ' + a.fu.map(f => 'Q' + f.n + (f.ok ? ' ✔' : ' ✘')).join(', ') + '</div>' : '';
   let work = '';
   if (a.workReq.length) {
@@ -277,7 +323,7 @@ function detail(a) {
     }).join('');
   }
   const log = a.ev.map(e => new Date(e.t).toLocaleTimeString() + ' · ' + esc(evn(e))).join('<br>') || 'No events';
-  return `<div class="row" style="margin-bottom:6px"><b>Flags</b> <span class="risk r-${a.risk}">${a.risk}</span><span class="mu">· seed ${esc(a.seed)} · receipt ${esc(a.receipt)}</span></div>${fl}${fu}
+  return `<div class="row" style="margin-bottom:6px"><b>Flags</b> <span class="risk r-${a.risk}">${a.risk}</span><span class="mu">· seed ${esc(a.seed)} · receipt ${esc(a.receipt)}</span></div>${fl}${rp}${fu}
  <div class="row" style="margin:8px 0"><button class="g s" data-act="rev" data-v="cleared" data-sid="${sid}">Mark cleared</button><button class="g s" data-act="rev" data-v="oral" data-sid="${sid}">Needs oral check</button><button class="g s" data-act="rev" data-v="" data-sid="${sid}">Clear mark</button></div>
  <div class="scroll"><table><tr><th>Q</th><th>Their numbers</th><th>Their answer</th><th>Expected</th><th></th><th>Time</th></tr>${rw}</table></div>${work}<details style="margin-top:8px"><summary class="mu">Activity log</summary><div class="mu" style="white-space:normal">${log}</div></details>`;
 }
@@ -288,6 +334,7 @@ document.addEventListener('click', async e => {
     else if (act === 'work') { b.textContent = 'Loading…'; IMG[sid] = (await A('work', { sid })).imgs; renderProf(); }
     else if (act === 'rev') { await A('review', { sid, review: b.dataset.v }); await loadRes(); renderProf(); }
     else if (act === 'unlock') { if (confirm('Let this student continue? Their answers are kept, the departure count restarts, and the current question gets a fresh timer.')) { await A('unlock', { sid }); await loadRes(); renderProf(); toast('Unlocked'); } }
+    else if (act === 'restore') { if (confirm('Restore this question? It will count normally again. The restore is written in the activity log.')) { await A('restore', { sid, qi: +b.dataset.qi }); await loadRes(); renderProf(); toast('Restored'); } }
     else if (act === 'reset') { if (confirm('Delete this attempt so the student can retake?')) { await A('reset', { sid }); delete IMG[sid]; await loadRes(); renderProf(); } }
     else if (act === 'clear') { if (confirm('Delete ALL attempts and work photos? This cannot be undone. Export to Excel first.')) { const j = await A('clear'); IMG = {}; open.clear(); await loadRes(); renderProf(); alert('Cleared ' + j.n + ' attempt(s).'); } }
   } catch (x) { alert(x.message); }
@@ -297,7 +344,7 @@ async function pushNow(b) { b.disabled = true; try { const j = await A('sheetPus
 
 async function exportX() {
   const Q = cfg.questions;
-  const mark = r => r.ok === -1 ? '—' : r.ok ? 'Correct' : r.to ? 'Timed out' : 'Wrong';
+  const mark = r => r.pen ? 'Forfeited' : r.ok === -1 ? '—' : r.ok ? 'Correct' : r.to ? 'Timed out' : 'Wrong';
   const res = [['Student', 'Student ID', 'Status', 'Score', 'Total', 'Percent', 'Integrity risk', 'Flags', 'Professor review', 'Times left exam', 'Seconds away', 'Work photos', 'Receipt', ...Q.map((_, i) => 'Q' + (i + 1))]];
   const ans = [['Student', 'Student ID', 'Q', 'Their numbers', 'Their answer', 'Expected', 'Result', 'Seconds']];
   const flg = [['Student', 'Student ID', 'Risk', 'Check', 'Weight', 'Detail']];
@@ -308,8 +355,8 @@ async function exportX() {
     a.flags.forEach(f => flg.push([a.name, a.sid, a.risk, f.k, f.w, f.txt]));
     a.ev.forEach(e => log.push([a.name, a.sid, new Date(e.t).toLocaleString(), evn(e).replace(/ \(Q\d+\)$/, ''), e.qi != null ? e.qi + 1 : '']));
   });
-  const item = [['Q#', 'Question', 'Correct answer', '% correct', 'Avg seconds', 'Time limit']];
-  qstat.forEach(q => item.push([q.n, q.q, q.key, q.pct == null ? '' : Math.round(q.pct * 100) / 100, q.avg == null ? '' : Math.round(q.avg / 100) / 10, q.t]));
+  const item = [['Q#', 'Question', 'Correct answer', '% correct', 'Avg seconds', 'Time limit', 'Reported unclear by']];
+  qstat.forEach(q => item.push([q.n, q.q, q.key, q.pct == null ? '' : Math.round(q.pct * 100) / 100, q.avg == null ? '' : Math.round(q.avg / 100) / 10, q.t, q.rep ? q.rep + ' (' + q.repBy.join(', ') + ')' : '']));
   const nm = (cfg.title || 'exam').replace(/[^\w\- ]/g, '');
   XlsxLite.save([['Results', res], ['Answers', ans], ['Flags', flg], ['Item analysis', item], ['Activity log', log]], nm + ' results.xlsx');   // built in: no CDN, works offline
 }

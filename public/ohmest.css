@@ -283,3 +283,8 @@ select{width:auto}
 .ed .vf4 label{font-size:11px;color:var(--mu);display:block}
 /* icon font not loaded yet (or blocked): keep the space, hide the ligature text */
 html:not(.ico) .ms{width:1em;overflow:hidden;visibility:hidden}
+/* question pictures */
+.qimg{display:block;max-width:100%;height:auto;margin:14px auto;border:1px solid var(--bd);border-radius:10px;background:#fff;cursor:zoom-in}
+.qimg-prev{width:180px;max-width:40%;max-height:140px;object-fit:contain;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.imgrow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin:10px 0}
+.imgrow > div{flex:1;min-width:220px}
