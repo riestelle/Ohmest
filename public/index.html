@@ -1,9 +1,56 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><title>Ohmest · Online exams</title></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><title>Ohmest · Online exams</title>
+<style>
+/* ---- physics intro splash (auto-plays once on load; no skip) ---- */
+.intro{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;text-align:center;padding:24px;overflow:hidden;color:#fff;
+  background:radial-gradient(1100px 640px at 50% 30%,#B5121B 0%,#8F0E15 56%,#4A0A10 100%);
+  animation:introOut .8s ease 3.4s forwards}
+.intro .atom{position:relative;width:138px;height:138px;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.55);animation:introPop .75s cubic-bezier(.2,.9,.3,1.3) .1s forwards}
+.intro .nuc{width:74px;height:74px;border-radius:18px;background:#fff;color:var(--pri);display:flex;align-items:center;justify-content:center;font:800 40px Inter,sans-serif;box-shadow:0 0 40px rgba(255,255,255,.45),0 12px 44px rgba(0,0,0,.35);z-index:2}
+.intro .orb{position:absolute;inset:8px;border:1.5px solid rgba(255,255,255,.4);border-radius:50%}
+.intro .o1{transform:scaleY(.42)}
+.intro .o2{transform:rotate(60deg) scaleY(.42)}
+.intro .o3{transform:rotate(-60deg) scaleY(.42)}
+.intro .e{position:absolute;inset:0;will-change:transform}
+.intro .e::after{content:"";position:absolute;top:1px;left:50%;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:#fff;box-shadow:0 0 12px 2px rgba(255,255,255,.85)}
+.intro .e2::after{top:auto;bottom:1px}
+.intro .e3::after{top:50%;left:1px;margin-top:-4.5px}
+.intro .e1{animation:orbit 2.3s linear infinite}
+.intro .e2{animation:orbit 3s linear infinite reverse}
+.intro .e3{animation:orbit 2.7s linear infinite}
+.intro .label{font:600 13px Inter,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:rgba(255,255,255,.85);opacity:0;transform:translateY(12px);animation:introUp .7s ease .8s forwards}
+.intro .prof{position:relative;font:800 clamp(30px,8vw,66px) Inter,sans-serif;letter-spacing:-.02em;line-height:1.05;opacity:0;transform:translateY(16px) scale(.96);animation:introUp .8s cubic-bezier(.2,.8,.2,1) 1.05s forwards}
+.intro .prof::after{content:"";position:absolute;left:50%;bottom:-14px;height:3px;width:0;background:linear-gradient(90deg,transparent,#fff,transparent);transform:translateX(-50%);animation:introLine .7s ease 1.55s forwards}
+.intro .shine{position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.4) 50%,transparent 60%);transform:translateX(-130%);animation:introShine 1.1s ease 1.7s forwards}
+.intro .eqn{font:600 13px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.08em;color:rgba(255,255,255,.62);opacity:0;animation:introUp .7s ease 2.1s forwards}
+body.introlock{overflow:hidden}
+@keyframes introPop{to{opacity:1;transform:scale(1)}}
+@keyframes introUp{to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes introLine{to{width:min(72%,340px)}}
+@keyframes introShine{to{transform:translateX(130%)}}
+@keyframes orbit{to{transform:rotate(360deg)}}
+@keyframes introOut{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){.intro,.intro *{animation-duration:.01ms!important;animation-delay:0ms!important}.intro{animation:introOut .4s ease 1.5s forwards}.intro .e{display:none}}
+</style></head><body>
+<div class="intro" id="intro" role="dialog" aria-label="Welcome to Ohmest" aria-live="polite">
+<div class="atom"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="e e1"></i><i class="e e2"></i><i class="e e3"></i><span class="nuc">O</span></div>
+<div class="label">The Best Physics Teacher</div>
+<div class="prof"><span id="profName">Dante Garrido</span><span class="shine"></span></div>
+<div class="eqn">F = ma&nbsp;&nbsp;·&nbsp;&nbsp;E = mc²&nbsp;&nbsp;·&nbsp;&nbsp;v = u + at</div>
+</div>
 <div id="hdr"></div>
-<div class="auth"><div class="l"><h1>Ohmest</h1><p>Create online exams, run them with built-in anti-cheating checks, and give students their results the moment you choose.</p>
-<ul><li><span class="ms">timer</span>Per-question timers the server controls</li><li><span class="ms">shuffle</span>Shuffled questions and per-student random numbers</li><li><span class="ms">verified_user</span>Tab, fullscreen and copy-paste tracking with integrity flags</li><li><span class="ms">functions</span>Formulas shown in standard notation</li><li><span class="ms">table_view</span>Results to Excel or Google Sheets</li></ul></div>
+<div class="auth"><div class="l"><h1>Ohmest</h1><p>Beautiful physics exams with live formulas, different numbers for every student, and results the moment you choose.</p>
+<ul><li><span class="ms">functions</span>Formulas, fractions and units in proper notation</li><li><span class="ms">shuffle</span>Different random values for every student</li><li><span class="ms">timer</span>Per-question timing you control</li><li><span class="ms">insights</span>Instant results to Excel or Google Sheets</li><li><span class="ms">tune</span>Optional focus checks you can switch on</li></ul>
+<div class="heroatom" aria-hidden="true"><i class="ring r1"></i><i class="ring r2"></i><i class="ring r3"></i><i class="el el1"></i><i class="el el2"></i><i class="el el3"></i><span class="nuc"></span></div></div>
 <div class="r"><div class="box"><h2>Welcome</h2><p class="lead">Choose how you want to use Ohmest.</p>
 <a class="btn block" href="student-login.html" style="padding:16px"><span class="ms">school</span>I'm a student</a>
 <a class="btn sec block" href="prof-login.html" style="padding:16px;margin-top:12px"><span class="ms">edit_note</span>I'm a professor</a>
 <p class="alt">Students need the school code from their professor.</p></div></div></div>
-<div id="ftr"></div><script src="common.js"></script><script>chrome({});</script></body></html>
+<div id="ftr"></div><script src="common.js"></script><script>chrome({});
+(function(){
+  var el = document.getElementById('intro'); if (!el) return;
+  document.body.classList.add('introlock');
+  function done(){ if (!el) return; document.body.classList.remove('introlock'); el.remove(); el = null; }
+  el.addEventListener('animationend', function(e){ if (e.animationName === 'introOut') done(); });
+  setTimeout(done, 6500);   // safety net if animationend never fires
+})();
+</script></body></html>
