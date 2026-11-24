@@ -9,7 +9,7 @@
 <script>
 /* PROFESSOR PAGE. Every action here is checked by the server with a signed login token. */
 /* DEF = what a new exam starts with. LEG = what an older exam gets for settings it never had (so nothing changes for it). */
-const DEF = { shuffleQ: true, shuffleC: true, copyBlock: true, fsTrack: true, showScore: true, showReview: true, showKey: false, release: 'closed', calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '', pin: '', rule: 'away', awayFree: 5, awayBank: 30, awayPen: 100, awayLock: 0, maxLeaves: 3, defTime: 30, defPts: 1, defTol: 2 };
+const DEF = { shuffleQ: true, shuffleC: true, copyBlock: false, fsTrack: false, showScore: true, showReview: true, showKey: false, release: 'closed', calc: false, units: false, multi: true, neg: 0, sheet: '', opens: 0, closes: 0, roster: [], followUps: 0, spot: 0, spotMins: 15, sheetUrl: '', sheetKey: '', pin: '', rule: 'count', awayFree: 5, awayBank: 30, awayPen: 0, awayLock: 0, maxLeaves: 0, defTime: 30, defPts: 1, defTol: 2 };
 const LEG = { ...DEF, rule: 'count', showScore: false, showReview: false, showKey: false, release: 'finish' };
 const EID = new URLSearchParams(location.search).get('id') || '';
 let SCH = null, cfg = null, qs = [], SET = { ...DEF }, title = '', atts = [], qstat = [], tab = 'q', open = new Set(), poll = null, IMG = {};
@@ -31,7 +31,7 @@ async function profInit() {
   if (!EID) { location.replace('prof.html'); return; }
   try {
     const j = await A('load'); cfg = j.exam;
-    SET = { ...LEG, ...(cfg?.set || {}), maxLeaves: cfg?.maxLeaves ?? 3 }; title = cfg?.title || '';
+    SET = { ...LEG, ...(cfg?.set || {}), maxLeaves: cfg?.maxLeaves ?? 0 }; title = cfg?.title || '';
     qs = cfg && cfg.questions.length ? cfg.questions.map((q, i) => fromSrv(q, j.key[i])) : [blank()];
     try { SCH = (await api('me')).school; } catch (e) { /* header only */ }
     chrome({ nav: [['Dashboard', 'prof.html', 'd'], ['Exam editor', '#', 'e']], active: 'e', who: { name: (JSON.parse(ls.get('oh_me') || '{}').user || {}).name || 'Professor', sub: SCH ? SCH.name : '' }, logout: 'index.html' });
@@ -127,8 +127,7 @@ function profS() {
       + row('Time away: points taken off', 'Share of that question’s points removed. 100 means the question scores 0. You can restore it in Results.', nin('awayPen', 0, 100, '%'), 'awayPen')
       + row('Time away: lock the exam after', 'Total time away that locks the whole exam as a last resort. 0 means never lock.', nin('awayLock', 0, 240, 'minutes'), 'awayLock')
       + row('Leave count: lock after leaving', 'Only used with the “Leave count” rule. 0 means never lock.', nin('maxLeaves', 0, 99, 'times'), 'maxLeaves')
-      + row('Block copy, paste and right-click', 'Also blocks print and save shortcuts.', sw('copyBlock'), 'copyBlock')
-      + row('Ask for fullscreen', 'Where the device supports it. Leaving fullscreen counts as leaving the exam.', sw('fsTrack'), 'fsTrack'))
+      + row('Block copy, paste and right-click', 'Also blocks print and save shortcuts.', sw('copyBlock'), 'copyBlock'))
     + sec('visibility', 'After the exam: what students can see', 'Students open this from their exam list or from the “Submitted” screen.',
       row('Release results', 'Showing answers while others are still testing can leak them. “When I close the exam” is safer.', `<select data-s="release"><option value="closed" ${SET.release === 'closed' ? 'selected' : ''}>When I close the exam</option><option value="finish" ${SET.release !== 'closed' ? 'selected' : ''}>Right after they finish</option></select>`, 'release')
       + row('Show their score', 'Total points out of the maximum.', sw('showScore'), 'showScore')
