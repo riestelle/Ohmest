@@ -121,17 +121,17 @@ ${v.canReview ? '<a class="btn block" style="margin-bottom:10px" href="result.ht
 
 function showQ() {
   const v = S.v, num = v.type === 'num';
-  $('timer-section').classList.toggle('hidden', !!v.notimer);
+  $('timer-section').classList.remove('hidden');
   const pb = $('progress-badge'); pb.style.display = ''; pb.textContent = (v.f ? 'Follow-up ' : 'Q ') + (v.cur + 1) + ' / ' + v.total;
   banners();
-  const tiles = v.choices.map((c, i) => { const hit = v.test && v.reveal != null && c.i === v.reveal; return `<button class="tile ${S.sel === c.i ? 'selected' : ''}" data-i="${c.i}" onclick="pick(${c.i})" type="button"${hit ? ' style="outline:2px solid #1A7F4B;outline-offset:2px;background:#BDF5D6"' : ''}><i>${L(i)}</i><span>${MathFmt.rich(c.t)}</span>${hit ? ' <span class="ms" style="color:#1A7F4B" aria-label="correct answer">check</span>' : ''}</button>`; }).join('');
+  const tiles = v.choices.map((c, i) => `<button class="tile ${S.sel === c.i ? 'selected' : ''}" data-i="${c.i}" onclick="pick(${c.i})" type="button"><i>${L(i)}</i><span>${MathFmt.rich(c.t)}</span></button>`).join('');
   const numIn = `<input class="xin" id="nv" inputmode="decimal" autocomplete="off" placeholder="Your answer (number)" value="${esc(S.num.v)}" oninput="S.num.v=this.value;setLock();np()">${S.info.s.units ? `<input class="xin" autocomplete="off" placeholder="Unit (e.g. N)" value="${esc(S.num.u)}" oninput="S.num.u=this.value">` : ''}`;
   app.innerHTML = `<div class="nosel" style="width:100%"><div class="qcard">
 <div class="qcount" aria-label="Progress"><b>${v.f ? 'Follow-up ' : 'Question '}${v.cur + 1} / ${v.total}</b><div class="bar" role="progressbar" aria-valuemin="1" aria-valuemax="${v.total}" aria-valuenow="${v.cur + 1}"><i style="width:${Math.round((v.cur + 1) / v.total * 100)}%"></i></div></div>
-<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><span class="tag">${v.f ? 'Follow-up' : num ? 'Numeric answer' : 'Single choice'}</span><span class="mu" style="font-size:12px">${v.notimer ? 'No timer' : v.t + 's'}</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><span class="tag">${v.f ? 'Follow-up' : num ? 'Numeric answer' : 'Single choice'}</span><span class="mu" style="font-size:12px">${v.t}s</span></div>
 ${v.f ? `<div class="recap" style="margin:16px 0 0;font-size:14px;color:var(--mu)">Your problem was:<span style="color:var(--tx)">${MathFmt.rich(v.ctx)}</span></div>` : ''}
 <h2 class="qtext">${MathFmt.rich(v.q)}</h2>${v.img ? `<img class="qimg" src="${esc(v.img)}" alt="${esc(v.imgAlt || 'Picture for this question')}" draggable="false" onclick="zoomImg(this.src)" title="Tap to zoom" onerror="this.outerHTML='<p class=&quot;bad&quot;>The picture did not load. Reload the page; your time keeps running.</p>'">` : ''}
-${num ? `<div>${numIn}</div><div class="numprev" id="np"></div>${v.test && v.revealText ? '<div class="ok" style="margin-top:8px;font-size:14px;font-weight:600;color:#1A7F4B">Answer: ' + esc(v.revealText) + '</div>' : ''}` : `<div class="tiles">${tiles}</div>`}
+${num ? `<div>${numIn}</div><div class="numprev" id="np"></div>` : `<div class="tiles">${tiles}</div>`}
 <div class="qfoot"><span class="mu" style="font-size:12px">Irreversible: you cannot return once you continue</span>
 <button class="btn" id="lockbtn" onclick="lock()" type="button" disabled>Lock in answer</button></div></div>
 <div style="max-width:900px;margin:12px auto 0;display:flex;justify-content:space-between;gap:8px">${S.info.s.calc ? '<button class="btn ghost sm" onclick="tools()" type="button">Calculator &amp; formulas</button>' : '<span></span>'}${v.f ? '<span></span>' : `<button class="btn ghost sm" onclick="flagQ(this)" type="button"${v.reported ? ' disabled' : ''}>${v.reported ? 'Reported' : 'Report unclear question'}</button>`}</div></div>`;
@@ -228,7 +228,7 @@ async function spoll() {
   } catch (e) { /* offline blip, try again later */ }
 }
 function tick() {
-  const v = S.v; if (!v || v.status !== 'in_progress' || v.notimer) return;
+  const v = S.v; if (!v || v.status !== 'in_progress') return;
   const left = v.left - (performance.now() - S.t0), tl = $('countdown-display'), tb = $('timer-bar');
   if (left <= 0) { if (Date.now() >= retryAt) lock(); return; }
   if (tl) { tl.textContent = Math.ceil(left / 1000) + 's'; tl.style.color = left < 6000 ? '#B45309' : ''; tb.style.width = Math.max(0, left / (v.t * 10)) + '%'; tb.style.background = left < 6000 ? '#B45309' : ''; }
