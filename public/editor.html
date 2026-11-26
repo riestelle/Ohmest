@@ -1,4 +1,31 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#B5121B"><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet"><link href="ohmest.css" rel="stylesheet"><meta name="robots" content="noindex"><title>Exam editor · Ohmest</title>
+<style>
+/* ---- ninja top-3 podium (results) ---- */
+.pod-wrap{position:relative;overflow:hidden;background:linear-gradient(160deg,#1a1e27,#12151c);border:1px solid #2a2f3a;border-radius:16px;padding:20px 14px 16px;margin-bottom:16px}
+.pod-wrap::before{content:"";position:absolute;inset:0;background:radial-gradient(420px 170px at 50% -24%,rgba(199,20,28,.28),transparent 70%);pointer-events:none}
+.pod-title{position:relative;text-align:center;color:#fff;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:13px;margin-bottom:18px}
+.pod-title span{color:#ff6a5f}
+.pod{position:relative;display:flex;justify-content:center;align-items:flex-end;gap:12px}
+.pod .seat{display:flex;flex-direction:column;align-items:center;gap:7px;width:31%;max-width:150px}
+.pod .ti{font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.pod .ava{position:relative;overflow:hidden;border-radius:50%;background:radial-gradient(circle at 50% 34%,#2b3240,#161a22)}
+.pod .band{position:absolute;left:-4px;right:-4px;top:24%;height:15%;background:#B5121B;box-shadow:0 0 6px rgba(181,18,27,.6)}
+.pod .eye{position:absolute;top:48%;transform:translateY(-50%);width:14%;aspect-ratio:1;border-radius:50%;background:#ff5a5f;box-shadow:0 0 6px #ff5a5f}
+.pod .el{left:27%}.pod .er{right:27%}
+.pod .nm{color:#fff;font-weight:700;font-size:13.5px;text-align:center;line-height:1.2;overflow-wrap:anywhere}
+.pod .sc{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#aeb6c4}
+.pod .base{width:100%;border-radius:9px 9px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:6px;color:#0d0f14;font-weight:900;font-size:20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.pod .crown{font-size:22px;line-height:1;margin-bottom:-2px}
+.pod .king{order:2}.pod .rh{order:3}.pod .lh{order:1}
+.pod .king .ava{width:88px;height:88px;box-shadow:0 0 0 3px #f5c543,0 10px 26px rgba(0,0,0,.5)}
+.pod .king .ti{color:#f5c543}.pod .king .base{height:86px;background:linear-gradient(#f5c543,#d9a520)}
+.pod .rh .ava{width:70px;height:70px;box-shadow:0 0 0 3px #d6dce6,0 8px 20px rgba(0,0,0,.45)}
+.pod .rh .ti{color:#d6dce6}.pod .rh .base{height:62px;background:linear-gradient(#d6dce6,#9aa3b2)}
+.pod .lh .ava{width:62px;height:62px;box-shadow:0 0 0 3px #d08a52,0 8px 20px rgba(0,0,0,.45)}
+.pod .lh .ti{color:#e3a06a}.pod .lh .base{height:46px;background:linear-gradient(#cd7f4b,#a5622f)}
+.pod-empty{position:relative;color:#9aa3b2;text-align:center;font-size:13px;padding:6px 0 2px}
+@media(max-width:560px){.pod{gap:7px}.pod .seat{width:32%}.pod .king .ava{width:72px;height:72px}.pod .rh .ava,.pod .lh .ava{width:56px;height:56px}.pod .nm{font-size:12px}}
+</style>
 </head><body>
 <div id="hdr"></div>
 <main class="wrap ed"><div id="app"><p class="mu">Loading…</p></div></main>
@@ -288,10 +315,17 @@ async function setStatus(o) {
 }
 
 /* ---------------- results ---------------- */
+function podium(top) {
+  if (!top.length) return `<div class="pod-wrap"><div class="pod-title">🥷 Clan <span>Leaderboard</span></div><div class="pod-empty">No finished attempts yet — the podium fills as students submit.</div></div>`;
+  const face = '<div class="ava"><span class="band"></span><span class="eye el"></span><span class="eye er"></span></div>';
+  const seat = (a, cls, title, rank) => a ? `<div class="seat ${cls}">${cls === 'king' ? '<div class="crown">👑</div>' : ''}<div class="ti">${title}</div>${face}<div class="nm">${esc(a.name)}</div><div class="sc">${a.score}/${a.of}</div><div class="base">${rank}</div></div>` : '';
+  return `<div class="pod-wrap"><div class="pod-title">🥷 Clan <span>Leaderboard</span></div><div class="pod">${seat(top[2], 'lh', 'Left Hand', 3)}${seat(top[0], 'king', 'King', 1)}${seat(top[1], 'rh', 'Right Hand', 2)}</div></div>`;
+}
 function profR() {
   if (!cfg) return '<div class="card"><p class="mu" style="margin:0">Save the exam with at least one question first.</p></div>';
   const n = cfg.questions.length, done = atts.filter(a => a.status !== 'in_progress'), hi = atts.filter(a => a.risk === 'High'), me = atts.filter(a => a.risk === 'Medium');
   const avg = done.length ? Math.round(done.reduce((s, a) => s + a.pct, 0) / done.length * 100) : 0;
+  const top = done.slice().sort((a, b) => b.score - a.score || b.pct - a.pct || (a.name || '').localeCompare(b.name || '')).slice(0, 3);
   const rows = [...atts].sort((a, b) => b.pts - a.pts || (a.name || '').localeCompare(b.name || '')).map(a => {
     const sid = esc(a.sid);
     const det = open.has(a.sid) ? `<tr><td colspan="8" style="white-space:normal;background:var(--bg)">${detail(a)}</td></tr>` : '';
@@ -300,7 +334,7 @@ function profR() {
   const rq = qstat.filter(q => q.rep > 0);
   const repCard = rq.length ? `<div class="card" style="border-color:var(--bad,#c0392b)"><b>⚑ Students reported unclear questions</b><div class="mu" style="margin:4px 0 8px">Check the wording or the key. If it is wrong, tell everyone with the announcement box above, then fix scores by hand or after the exam.</div>${rq.map(q => `<div style="margin:6px 0"><b>Q${q.n}</b> · ${q.rep} student${q.rep === 1 ? '' : 's'} (${esc(q.repBy.join(', '))})<div class="mu">${esc(q.q.length > 140 ? q.q.slice(0, 140) + '…' : q.q)}</div></div>`).join('')}</div>` : '';
   const items = qstat.map(q => `<tr><td>Q${q.n}</td><td style="white-space:normal;min-width:200px">${esc(q.q)}${q.rand ? ' <span class="mu">(random numbers)</span>' : ''}</td><td style="white-space:normal">${esc(q.key)}</td><td>${q.pct == null ? '' : Math.round(q.pct * 100) + '%'}</td><td>${q.avg == null ? '' : Math.round(q.avg / 100) / 10 + 's'}</td><td>${q.t}s</td><td class="${q.rep ? 'bad' : ''}">${q.rep || ''}</td></tr>`).join('');
-  return `<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div>
+  return `${podium(top)}<div class="card"><label class="mu">Announcement to students taking the exam now</label><input id="an" placeholder="e.g. Q5 has a typo, ignore it"><div class="row"><button onclick="sendAnn()">Send</button><button class="g" onclick="sendAnn(1)">Clear</button></div></div>
  ${repCard}
  <div class="row"><button onclick="exportX()">Download Excel (.xlsx)</button><button class="g" onclick="setTab('r')">Refresh</button>${SET.sheetUrl ? '<button class="g" onclick="pushNow(this)">Send to Google Sheet</button>' : ''}<button class="d" data-act="clear">Clear all attempts</button></div>
  <div class="row mu" style="margin:10px 0"><span>${atts.length} attempt(s)</span><span>· ${done.length} finished</span><span>· class average ${avg}%</span><span>· <b class="${hi.length ? 'bad' : ''}">${hi.length} high</b> / ${me.length} medium risk</span></div>
